@@ -2129,13 +2129,25 @@ async function simulateDrugDocking(drugName, gene) {
   }
 
   recordAuditLog("WebMCP Agent simulated drug docking: " + drugName + " into " + targetGene, "WEBMCP_TOOL");
+  // HONEST SCORING: deterministic heuristic estimate from the drug+gene pair — clearly labeled
+  // as educational. The 3D pose is real (PDB render); the scores are NOT physics-based docking.
+  let h = 0;
+  const key = drugName.toLowerCase() + "@" + targetGene.toLowerCase();
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) | 0;
+  h = Math.abs(h);
+  const affinity = -(6.0 + (h % 40) / 10);          // -6.0 .. -9.9 kcal/mol band
+  const pScore = 0.80 + ((h >> 3) % 15) / 100;      // 0.80 .. 0.94 band
+  const targetDef = PGXCore.geneDefFor(targetGene);
   return {
     status: "docked",
     drug: drugName,
     gene: targetGene,
-    affinityKcalMol: -8.7,
-    dockingPScore: 0.94,
-    interaction: "Hydrogen bonding to Thr301 & hydrophobic coordination with Phe476.",
+    pdbId: targetDef && targetDef.pdb ? targetDef.pdb.id : null,
+    affinityKcalMol: Math.round(affinity * 10) / 10,
+    dockingPScore: Math.round(pScore * 100) / 100,
+    interaction: "Educational pose: substrate rendered in the catalytic site adjacent to the heme pocket.",
+    method: "heuristic estimate + real PDB 3D pose — NOT physics-based docking",
+    illustrative: true,
   };
 }
 
@@ -2897,9 +2909,9 @@ const WEBMCP_TOOLS = [
       showProteinViewport();
       const targetGene = gene ? String(gene) : String((PGXCore.findDrug(String(drugName || "")) || {}).gene || "");
       if (!state.structureLoadedGene && targetGene) await loadProteinStructure(targetGene);
-      updateWebMcpHudStep(3, "3 of 5: Computing Molecular Docking", "Evaluating Gibbs binding free energy ΔG…");
+      updateWebMcpHudStep(3, "3 of 5: Rendering Binding Estimate", "Educational heuristic score + real PDB pose…");
       const res = await simulateDrugDocking(drugName, gene);
-      updateWebMcpHudStep(5, "5 of 5: Docked in 3D", "Substrate locked into catalytic cleft.", null, res, "Docked " + drugName + " with ΔG = -8.7 kcal/mol into 3D binding site.");
+      updateWebMcpHudStep(5, "5 of 5: Docked in 3D", "Educational pose rendered.", null, res, "Rendered " + drugName + " into " + (res.pdbId || targetGene) + " binding site (heuristic score " + res.dockingPScore + ").");
       return res;
     },
   },
