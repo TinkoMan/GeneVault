@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeneVault — Your AI can check your DNA without ever seeing it</title>
+<meta name="description" content="GeneVault: privacy-preserving pharmacogenomics with WebMCP + zero-knowledge proofs. The browser proves drug safety to an AI agent mathematically — the DNA never leaves the device. OpenAI WebMCP Challenge entry.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #06080c;
+    --bg-soft: #0b0e14;
+    --panel: #0e131c;
+    --panel-2: #111826;
+    --border: #1c2635;
+    --border-lit: #263650;
+    --text: #e8edf5;
+    --text-dim: #8b96a8;
+    --text-faint: #5b6678;
+    --blue: #3b82f6;
+    --cyan: #22d3ee;
+    --emerald: #10b981;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --violet: #8b5cf6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  /* ---------- nav ---------- */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 28px;
+    background: rgba(6,8,12,0.72);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 17px; letter-spacing: -0.02em; }
+  .brand svg { display: block; }
+  .nav-links { display: flex; align-items: center; gap: 22px; font-size: 13.5px; }
+  .nav-links a { color: var(--text-dim); text-decoration: none; transition: color .15s; }
+  .nav-links a:hover { color: var(--text); }
+  .nav-cta {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--blue); color: #fff !important;
+    padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 13px;
+    box-shadow: 0 0 0 1px rgba(59,130,246,.4), 0 4px 18px rgba(59,130,246,.25);
+    transition: transform .15s, box-shadow .15s;
+  }
+  .nav-cta:hover { transform: translateY(-1px); box-shadow: 0 0 0 1px rgba(59,130,246,.5), 0 8px 26px rgba(59,130,246,.4); }
+
+  /* ---------- hero ---------- */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center;
+    padding: 130px 24px 80px;
+    overflow: hidden;
+  }
+  .hero-bg { position: absolute; inset: 0; z-index: 0; opacity: .9; }
+  .hero-bg svg { width: 100%; height: 100%; }
+  .hero > * { position: relative; z-index: 1; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px; font-weight: 600;
+    color: var(--cyan); letter-spacing: .12em; text-transform: uppercase;
+    border: 1px solid rgba(34,211,238,.28); background: rgba(34,211,238,.06);
+    padding: 7px 14px; border-radius: 99px; margin-bottom: 28px;
+  }
+  .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--emerald); box-shadow: 0 0 10px var(--emerald); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  h1 {
+    font-size: clamp(38px, 6.4vw, 76px);
+    font-weight: 900; letter-spacing: -0.035em; line-height: 1.04;
+    max-width: 1000px;
+  }
+  h1 .grad {
+    background: linear-gradient(92deg, #60a5fa 0%, #22d3ee 45%, #34d399 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-sub {
+    margin-top: 26px; font-size: clamp(16px, 2vw, 20px);
+    color: var(--text-dim); max-width: 780px; line-height: 1.65; font-weight: 400;
+  }
+  .hero-sub b { color: var(--text); font-weight: 600; }
+  .hero-ctas { display: flex; gap: 14px; margin-top: 42px; flex-wrap: wrap; justify-content: center; }
+  .btn-hero {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 15px 30px; border-radius: 11px; font-size: 15.5px; font-weight: 700;
+    text-decoration: none; letter-spacing: -0.01em;
+    transition: transform .16s, box-shadow .16s, background .16s;
+  }
+  .btn-primary-h {
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    color: #fff;
+    box-shadow: 0 0 0 1px rgba(59,130,246,.5), 0 10px 34px rgba(37,99,235,.4);
+  }
+  .btn-primary-h:hover { transform: translateY(-2px); box-shadow: 0 0 0 1px rgba(59,130,246,.7), 0 16px 44px rgba(37,99,235,.55); }
+  .btn-ghost-h {
+    background: rgba(255,255,255,.04); color: var(--text);
+    border: 1px solid var(--border-lit);
+    backdrop-filter: blur(6px);
+  }
+  .btn-ghost-h:hover { background: rgba(255,255,255,.08); transform: translateY(-2px); }
+  .trust-row {
+    display: flex; gap: 26px; margin-top: 46px; flex-wrap: wrap; justify-content: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-faint);
+  }
+  .trust-row span { display: inline-flex; align-items: center; gap: 7px; }
+  .trust-row .tick { color: var(--emerald); }
+
+  /* ---------- sections ---------- */
+  section { padding: 96px 24px; max-width: 1180px; margin: 0 auto; }
+  .sec-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--cyan);
+    display: flex; align-items: center; gap: 10px; margin-bottom: 18px;
+  }
+  .sec-label::before { content: ""; width: 26px; height: 1.5px; background: var(--cyan); opacity: .6; }
+  h2 { font-size: clamp(28px, 4vw, 44px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.12; }
+  .sec-sub { margin-top: 16px; color: var(--text-dim); font-size: 17px; line-height: 1.7; max-width: 760px; }
+
+  /* ---------- problem: two cards ---------- */
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 54px; }
+  @media (max-width: 860px) { .duo { grid-template-columns: 1fr; } }
+  .card {
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--border); border-radius: 18px; padding: 34px 32px;
+    position: relative; overflow: hidden;
+    transition: border-color .2s, transform .2s;
+  }
+  .card:hover { border-color: var(--border-lit); transform: translateY(-3px); }
+  .card .icon-wrap {
+    width: 52px; height: 52px; border-radius: 13px;
+    display: flex; align-items: center; justify-content: center; margin-bottom: 22px;
+  }
+  .card h3 { font-size: 21px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 12px; }
+  .card p { color: var(--text-dim); font-size: 14.5px; line-height: 1.75; }
+  .card p b { color: var(--text); }
+  .card.danger { border-color: rgba(239,68,68,.22); }
+  .card.danger .icon-wrap { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.25); }
+  .card.danger h3 span { color: var(--red); }
+  .card.lockd { border-color: rgba(245,158,11,.2); }
+  .card.lockd .icon-wrap { background: rgba(245,158,11,.09); border: 1px solid rgba(245,158,11,.25); }
+  .card.lockd h3 span { color: var(--amber); }
+  .stat-strip {
+    display: flex; gap: 0; margin-top: 54px; border: 1px solid var(--border);
+    border-radius: 16px; overflow: hidden; background: var(--bg-soft);
+  }
+  .stat-cell { flex: 1; padding: 28px 22px; text-align: center; border-right: 1px solid var(--border); }
+  .stat-cell:last-child { border-right: none; }
+  @media (max-width: 720px) { .stat-strip { flex-direction: column; } .stat-cell { border-right: none; border-bottom: 1px solid var(--border); } }
+  .stat-num { font-size: clamp(26px, 3.4vw, 38px); font-weight: 800; letter-spacing: -0.03em; }
+  .stat-num.blue { color: #60a5fa; } .stat-num.green { color: #34d399; } .stat-num.amber { color: #fbbf24; } .stat-num.violet { color: #a78bfa; }
+  .stat-label { margin-top: 8px; font-size: 12.5px; color: var(--text-dim); line-height: 1.5; }
+
+  /* ---------- steps ---------- */
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 56px; }
+  @media (max-width: 900px) { .steps { grid-template-columns: 1fr; } }
+  .step {
+    background: var(--bg-soft); border: 1px solid var(--border); border-radius: 18px;
+    padding: 30px 28px; position: relative;
+    transition: border-color .2s, transform .2s;
+  }
+  .step:hover { border-color: rgba(59,130,246,.4); transform: translateY(-3px); }
+  .step-num {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    color: var(--blue); background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.3);
+    padding: 4px 11px; border-radius: 99px;
+  }
+  .step svg.art { margin: 24px auto 20px; display: block; }
+  .step h3 { font-size: 18.5px; font-weight: 700; margin-bottom: 10px; letter-spacing: -0.015em; }
+  .step p { color: var(--text-dim); font-size: 13.8px; line-height: 1.75; }
+  .step .tag {
+    display: inline-block; margin-top: 16px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600;
+    color: var(--emerald); background: rgba(16,185,129,.08); border: 1px solid rgba(16,185,129,.25);
+    padding: 4px 10px; border-radius: 99px;
+  }
+
+  /* ---------- analogy ---------- */
+  .analogy {
+    margin-top: 60px; border: 1px solid rgba(139,92,246,.28); border-radius: 18px;
+    background: linear-gradient(135deg, rgba(139,92,246,.09), rgba(59,130,246,.05));
+    padding: 40px 38px; display: flex; gap: 30px; align-items: flex-start;
+  }
+  @media (max-width: 800px) { .analogy { flex-direction: column; padding: 30px 26px; } }
+  .analogy .icon-wrap { flex-shrink: 0; width: 58px; height: 58px; border-radius: 14px; background: rgba(139,92,246,.14); border: 1px solid rgba(139,92,246,.35); display: flex; align-items: center; justify-content: center; }
+  .analogy h3 { font-size: 20px; font-weight: 700; margin-bottom: 10px; letter-spacing: -0.02em; }
+  .analogy p { color: var(--text-dim); font-size: 14.5px; line-height: 1.8; }
+  .analogy p b { color: var(--text); }
+
+  /* ---------- pipeline / demo ---------- */
+  .demo-wrap { margin-top: 54px; border: 1px solid var(--border); border-radius: 18px; overflow: hidden; background: var(--bg-soft); }
+  .demo-shot { width: 100%; display: block; border-bottom: 1px solid var(--border); }
+  .demo-caption { padding: 24px 30px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; }
+  .demo-caption .txt { font-size: 14px; color: var(--text-dim); line-height: 1.6; max-width: 640px; }
+  .demo-caption .txt b { color: var(--text); }
+  .pipeline-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+  .pchip {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+    padding: 7px 13px; border-radius: 8px;
+    background: rgba(59,130,246,.07); border: 1px solid rgba(59,130,246,.22); color: #93c5fd;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .pchip .arrow { color: var(--text-faint); }
+
+  /* ---------- honesty ---------- */
+  .honest { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 54px; }
+  @media (max-width: 860px) { .honest { grid-template-columns: 1fr; } }
+  .honest .card { padding: 30px 30px; }
+  .honest h3 { display: flex; align-items: center; gap: 10px; }
+  .honest ul { margin-top: 16px; list-style: none; }
+  .honest li { color: var(--text-dim); font-size: 13.8px; line-height: 1.65; padding: 7px 0 7px 26px; position: relative; }
+  .honest li b { color: var(--text); }
+  .honest li::before { position: absolute; left: 2px; font-size: 13px; }
+  .honest .yes li::before { content: "✓"; color: var(--emerald); }
+  .honest .no li::before { content: "→"; color: var(--amber); }
+
+  /* ---------- judges quickstart ---------- */
+  .quickstart {
+    margin-top: 54px; border: 1px solid rgba(16,185,129,.3); border-radius: 18px;
+    background: linear-gradient(160deg, rgba(16,185,129,.08), rgba(6,8,12,.4));
+    padding: 42px 40px;
+  }
+  @media (max-width: 700px) { .quickstart { padding: 30px 24px; } }
+  .quickstart h3 { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 8px; }
+  .quickstart .qs-sub { color: var(--text-dim); font-size: 14px; margin-bottom: 28px; }
+  .qs-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  @media (max-width: 860px) { .qs-steps { grid-template-columns: 1fr; } }
+  .qs-step { background: rgba(6,8,12,.55); border: 1px solid var(--border); border-radius: 13px; padding: 22px 20px; }
+  .qs-step .n { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 12px; color: var(--emerald); margin-bottom: 10px; }
+  .qs-step h4 { font-size: 15.5px; font-weight: 700; margin-bottom: 7px; }
+  .qs-step p { color: var(--text-dim); font-size: 13px; line-height: 1.65; }
+  .qs-note { margin-top: 24px; font-size: 12.5px; color: var(--text-faint); line-height: 1.7; }
+  .qs-note code { font-family: 'JetBrains Mono', monospace; color: #93c5fd; background: rgba(59,130,246,.08); padding: 2px 7px; border-radius: 6px; font-size: 11.5px; }
+
+  /* ---------- final cta ---------- */
+  .final { text-align: center; padding: 110px 24px 130px; position: relative; }
+  .final h2 { font-size: clamp(30px, 4.6vw, 54px); max-width: 860px; margin: 0 auto; }
+  .final p { margin-top: 20px; color: var(--text-dim); font-size: 17px; line-height: 1.7; max-width: 640px; margin-left: auto; margin-right: auto; }
+  .final .hero-ctas { margin-top: 38px; }
+
+  footer { border-top: 1px solid var(--border); padding: 36px 28px; }
+  .foot-inner { max-width: 1180px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 18px; align-items: center; justify-content: space-between; font-size: 12.5px; color: var(--text-faint); }
+  .foot-inner a { color: var(--text-dim); text-decoration: none; }
+  .foot-inner a:hover { color: var(--text); }
+  .disclaim { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: .04em; }
+
+  /* reveal on scroll */
+  .reveal { opacity: 0; transform: translateY(26px); transition: opacity .7s cubic-bezier(.2,.7,.3,1), transform .7s cubic-bezier(.2,.7,.3,1); }
+  .reveal.on { opacity: 1; transform: none; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+      <rect x="1" y="1" width="24" height="24" rx="7" fill="#0b1220" stroke="#2563eb" stroke-width="1.6"/>
+      <path d="M8 6.5c0 4 10 4 10 6.5s-10 2.5-10 6.5" stroke="#60a5fa" stroke-width="1.7" stroke-linecap="round" fill="none"/>
+      <path d="M18 6.5c0 4-10 4-10 6.5s10 2.5 10 6.5" stroke="#22d3ee" stroke-width="1.7" stroke-linecap="round" fill="none"/>
+      <circle cx="13" cy="13" r="1.7" fill="#34d399"/>
+    </svg>
+    GeneVault
+  </div>
+  <div class="nav-links">
+    <a href="#problem">The Problem</a>
+    <a href="#how">How It Works</a>
+    <a href="#proof">What's Real</a>
+    <a href="#judges">For Judges</a>
+    <a href="genevault.html" class="nav-cta">Launch Live Demo
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+  </div>
+</nav>
+
+<!-- ================= HERO ================= -->
+<header class="hero">
+  <div class="hero-bg" aria-hidden="true">
+    <svg preserveAspectRatio="xMidYMid slice" viewBox="0 0 1440 900" fill="none">
+      <defs>
+        <radialGradient id="glow1" cx="50%" cy="38%" r="55%">
+          <stop offset="0%" stop-color="#1d4ed8" stop-opacity="0.16"/>
+          <stop offset="55%" stop-color="#0b1220" stop-opacity="0.05"/>
+          <stop offset="100%" stop-color="#06080c" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="helix1" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#3b82f6" stop-opacity=".55"/>
+          <stop offset="100%" stop-color="#22d3ee" stop-opacity=".28"/>
+        </linearGradient>
+      </defs>
+      <rect width="1440" height="900" fill="url(#glow1)"/>
+      <g stroke="url(#helix1)" stroke-width="1.4">
+        <path d="M-60 140 C 240 260, 480 20, 720 140 S 1200 260, 1500 140" fill="none" opacity=".55"/>
+        <path d="M-60 200 C 240 80, 480 320, 720 200 S 1200 80, 1500 200" fill="none" opacity=".4"/>
+        <path d="M-60 760 C 240 880, 480 640, 720 760 S 1200 880, 1500 760" fill="none" opacity=".5"/>
+        <path d="M-60 820 C 240 700, 480 940, 720 820 S 1200 700, 1500 820" fill="none" opacity=".35"/>
+      </g>
+      <g opacity=".8">
+        <path d="M1130 120 c 0 46 90 46 90 92 s -90 46 -90 92" stroke="#3b82f6" stroke-opacity=".5" stroke-width="2" fill="none"/>
+        <path d="M1220 120 c 0 46 -90 46 -90 92 s 90 46 90 92" stroke="#22d3ee" stroke-opacity=".38" stroke-width="2" fill="none"/>
+        <line x1="1141" y1="146" x2="1209" y2="146" stroke="#1e3a5f" stroke-width="2"/>
+        <line x1="1141" y1="304" x2="1209" y2="304" stroke="#1e3a5f" stroke-width="2"/>
+      </g>
+      <g opacity=".65">
+        <path d="M120 600 c 0 40 80 40 80 80 s -80 40 -80 80" stroke="#22d3ee" stroke-opacity=".4" stroke-width="2" fill="none"/>
+        <path d="M200 600 c 0 40 -80 40 -80 80 s 80 40 80 80" stroke="#3b82f6" stroke-opacity=".3" stroke-width="2" fill="none"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="eyebrow"><span class="dot"></span>OpenAI WebMCP Challenge &nbsp;·&nbsp; real Groth16 &nbsp;·&nbsp; runs 100% in your browser</div>
+
+  <h1>Your AI doctor can check your DNA<br><span class="grad">without ever seeing it.</span></h1>
+
+  <p class="hero-sub">
+    For ~30% of people, a common blood thinner simply doesn't work — and the first warning sign can be a blood clot.
+    The fix is to check your genes. The problem: you should never hand your genetic code to an AI or a server.
+    <b>GeneVault lets the AI ask your browser directly — and your browser answers with mathematics, not your DNA.</b>
+  </p>
+
+  <div class="hero-ctas">
+    <a class="btn-hero btn-primary-h" href="genevault.html">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M8 5.5v13l11-6.5-11-6.5z" fill="currentColor"/></svg>
+      Launch the Live Demo
+    </a>
+    <a class="btn-hero btn-ghost-h" href="#how">
+      See how it works
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14m-6-6 6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+  </div>
+
+  <div class="trust-row">
+    <span><span class="tick">✓</span> 12 real WebMCP tools registered</span>
+    <span><span class="tick">✓</span> real zk-SNARK proofs (8,845 constraints)</span>
+    <span><span class="tick">✓</span> DNA file never leaves the device</span>
+    <span><span class="tick">✓</span> human-in-the-loop consent gates</span>
+  </div>
+</header>
+
+<!-- ================= PROBLEM ================= -->
+<section id="problem">
+  <div class="reveal">
+    <div class="sec-label">The problem</div>
+    <h2>Two truths that put you in a box.</h2>
+    <p class="sec-sub">Software engineers fixed this class of problem for passwords with hashing and for photos with on-device processing. Medicine never got that fix — until now.</p>
+  </div>
+
+  <div class="duo">
+    <div class="card danger reveal">
+      <div class="icon-wrap">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+          <path d="M10.5 3h3M12 3v18M7.5 8.5c0-3 9-3 9 0s-9 3-9 7 9 3 9 0" stroke="#ef4444" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+        </svg>
+      </div>
+      <h3>The pill that <span>silently fails</span></h3>
+      <p>
+        Clopidogrel (Plavix) is one of the most prescribed drugs on Earth, given after stents to prevent deadly clots.
+        But up to <b>1 in 3 people carry a gene variant that stops the body from activating it</b> — a missed dose in disguise.
+        Regulators and CPIC guidelines say: check the patient's genetics <b>before</b> prescribing. Almost nobody does, because the check has been too invasive.
+      </p>
+    </div>
+    <div class="card lockd reveal">
+      <div class="icon-wrap">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+          <rect x="5" y="10.5" width="14" height="9.5" rx="2.4" stroke="#f59e0b" stroke-width="1.8"/>
+          <path d="M8.2 10.5V8a3.8 3.8 0 1 1 7.6 0v2.5" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round"/>
+          <circle cx="12" cy="15.2" r="1.6" fill="#f59e0b"/>
+        </svg>
+      </div>
+      <h3>The file you can <span>never take back</span></h3>
+      <p>
+        To check, an AI assistant would ask for your raw DNA export (23andMe, AncestryDNA, VCF).
+        That file is the <b>ultimate identity leak</b> — you can change a leaked password in a minute, but you can never change your genome,
+        and it links to your relatives too. Uploading it to any server or model context is a privacy decision that lasts forever.
+      </p>
+    </div>
+  </div>
+
+  <div class="stat-strip reveal">
+    <div class="stat-cell"><div class="stat-num blue">~30%</div><div class="stat-label">of people get little to no protection from clopidogrel due to CYP2C19 genetics</div></div>
+    <div class="stat-cell"><div class="stat-num amber">1 file</div><div class="stat-label">raw DNA export is enough to leak your most permanent identity forever</div></div>
+    <div class="stat-cell"><div class="stat-num green">0 bytes</div><div class="stat-label">of your DNA leaves the browser in GeneVault — provably</div></div>
+    <div class="stat-cell"><div class="stat-num violet">12</div><div class="stat-label">WebMCP tools any AI agent can discover and call — safely</div></div>
+  </div>
+</section>
+
+<!-- ================= HOW ================= -->
+<section id="how">
+  <div class="reveal">
+    <div class="sec-label">How it works</div>
+    <h2>Three steps. Zero exposure.</h2>
+    <p class="sec-sub">GeneVault is a WebMCP server that lives inside your browser tab. The AI talks to it; it talks to your local data; the only thing that crosses the boundary is a cryptographic verdict.</p>
+  </div>
+
+  <div class="steps">
+    <div class="step reveal">
+      <span class="step-num">STEP 1</span>
+      <svg class="art" width="150" height="96" viewBox="0 0 150 96" fill="none">
+        <rect x="20" y="14" width="110" height="68" rx="8" fill="#0e131c" stroke="#263650" stroke-width="1.6"/>
+        <line x1="30" y1="30" x2="96" y2="30" stroke="#3b82f6" stroke-width="2.4" stroke-linecap="round" opacity=".85"/>
+        <line x1="30" y1="42" x2="120" y2="42" stroke="#1e3a5f" stroke-width="2.4" stroke-linecap="round"/>
+        <line x1="30" y1="54" x2="78" y2="54" stroke="#1e3a5f" stroke-width="2.4" stroke-linecap="round"/>
+        <rect x="88" y="60" width="30" height="12" rx="3" fill="#10b981" opacity=".9"/>
+        <text x="31" y="74" fill="#5b6678" font-family="JetBrains Mono" font-size="8">rs4244285</text>
+        <circle cx="75" cy="78" r="15" fill="#06080c" stroke="#10b981" stroke-width="1.6"/>
+        <path d="M70 78l3.5 3.5L80 75" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <h3>Your DNA stays in the vault</h3>
+      <p>Drop your raw 23andMe / AncestryDNA / VCF file into the page. It is parsed <b>line-by-line in local memory</b> — 600,000+ positions scanned in about a second. Nothing is uploaded; there is no server to upload to.</p>
+      <span class="tag">client-side · no upload</span>
+    </div>
+    <div class="step reveal">
+      <span class="step-num">STEP 2</span>
+      <svg class="art" width="150" height="96" viewBox="0 0 150 96" fill="none">
+        <rect x="14" y="24" width="52" height="40" rx="8" fill="#0e131c" stroke="#3b82f6" stroke-width="1.6"/>
+        <circle cx="33" cy="38" r="6" fill="#3b82f6" opacity=".85"/>
+        <line x1="26" y1="52" x2="44" y2="52" stroke="#263650" stroke-width="2.4" stroke-linecap="round"/>
+        <rect x="86" y="24" width="52" height="40" rx="8" fill="#0e131c" stroke="#22d3ee" stroke-width="1.6"/>
+        <path d="M104 46c0-9 18-9 18 0s-18 9-18 0" stroke="#22d3ee" stroke-width="1.7" fill="none"/>
+        <path d="M114 36v20M104 46h20" stroke="#22d3ee" stroke-width="1.7"/>
+        <path d="M70 40h10m-4-4 4 4-4 4" stroke="#8b96a8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M80 52H70m4-4-4 4 4 4" stroke="#8b96a8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="47" y="82" fill="#5b6678" font-family="JetBrains Mono" font-size="7.5">WebMCP tool call</text>
+      </svg>
+      <h3>The AI asks through WebMCP</h3>
+      <p>"Is clopidogrel safe for this patient?" The agent discovers GeneVault's tools via <b>document.modelContext.registerTool()</b> and calls them like any API — but the tools run <b>on your machine, gated by your consent</b>.</p>
+      <span class="tag">12 registered tools · you approve each release</span>
+    </div>
+    <div class="step reveal">
+      <span class="step-num">STEP 3</span>
+      <svg class="art" width="150" height="96" viewBox="0 0 150 96" fill="none">
+        <rect x="18" y="18" width="114" height="60" rx="8" fill="#0e131c" stroke="#10b981" stroke-width="1.6"/>
+        <text x="30" y="40" fill="#34d399" font-family="JetBrains Mono" font-size="8.5">pi_a, pi_b, pi_c</text>
+        <text x="30" y="54" fill="#5b6678" font-family="JetBrains Mono" font-size="8">public_signals: valid</text>
+        <circle cx="118" cy="30" r="7" stroke="#10b981" stroke-width="1.8" fill="none"/>
+        <path d="M114.8 30l2.4 2.4 4.2-4.4" stroke="#10b981" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="30" y="70" fill="#5b6678" font-family="JetBrains Mono" font-size="7">genotype: ███ hidden ███</text>
+      </svg>
+      <h3>It answers with a proof</h3>
+      <p>The browser generates a <b>real Groth16 zero-knowledge proof</b> (bn128 curve, ~2s). The AI learns exactly one bit of truth — "unsafe for this patient" — verified by mathematics, with your actual genotype sealed inside the circuit.</p>
+      <span class="tag">Groth16 · replay-protected · on-chain ready</span>
+    </div>
+  </div>
+
+  <div class="analogy reveal">
+    <div class="icon-wrap">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+        <path d="M12 3l7 3v5c0 4.6-3 8.4-7 10-4-1.6-7-5.4-7-10V6l7-3z" stroke="#a78bfa" stroke-width="1.7" stroke-linejoin="round"/>
+        <path d="M9.2 12l2 2 3.8-4" stroke="#a78bfa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div>
+      <h3>No biology degree needed — think of a nightclub bouncer</h3>
+      <p>
+        You can prove you're old enough to enter <b>without showing the bouncer your birth date</b> — that's the classic zero-knowledge idea.
+        GeneVault does the same for medicine: the AI asks "is this drug safe for this person?" and gets back a
+        <b>mathematically-checkable YES/NO</b>. It never sees your birth date (your genotype), your ID (your file), or even your name.
+        And unlike a bouncer, this one is a Groth16 verifier on the bn128 curve — <b>if it says VALID, it is cryptographically certain</b>.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DEMO / PROOF OF WORK ================= -->
+<section id="proof">
+  <div class="reveal">
+    <div class="sec-label">What actually runs</div>
+    <h2>Not a mockup. A real proving system.</h2>
+    <p class="sec-sub">This is the actual app moments after the one-click agent demo finished: seven WebMCP tool calls, a human-in-the-loop consent gate, and an independently verified Groth16 proof — all local.</p>
+  </div>
+
+  <div class="demo-wrap reveal">
+    <img class="demo-shot" src="screenshots/demo_pipeline_complete.png" alt="GeneVault app after the full agent demo: 3D DNA viewport, WebMCP HUD showing verify_zk_proof VERIFIED, nullifier consumed">
+    <div class="demo-caption">
+      <div class="txt"><b>The WebMCP Agent Runtime HUD (bottom right)</b> shows exactly what the AI called, what was released, and the patient's consent decision — every call is in the tamper-evident audit ledger.</div>
+      <a class="btn-hero btn-primary-h" style="padding:13px 24px; font-size:14px;" href="genevault.html">Try it yourself
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+    </div>
+  </div>
+
+  <div class="pipeline-chips reveal">
+    <span class="pchip">parse_genomic_file</span><span class="pchip arrow">→</span>
+    <span class="pchip">list_detected_markers</span><span class="pchip arrow">→</span>
+    <span class="pchip">check_drug_safety</span><span class="pchip arrow">→</span>
+    <span class="pchip">recommend_alternative</span><span class="pchip arrow">→</span>
+    <span class="pchip">generate_zk_proof</span><span class="pchip arrow">→</span>
+    <span class="pchip">verify_zk_proof</span><span class="pchip arrow">→</span>
+    <span class="pchip" style="border-color:rgba(16,185,129,.4); color:#6ee7b7; background:rgba(16,185,129,.07);">VERIFIED ✓</span>
+  </div>
+
+  <div class="honest">
+    <div class="card reveal">
+      <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v5c0 4.6-3 8.4-7 10-4-1.6-7-5.4-7-10V6l7-3z" stroke="#10b981" stroke-width="1.7" stroke-linejoin="round"/></svg> Real, verified engineering</h3>
+      <ul class="yes">
+        <li><b>Groth16 over bn128</b> via snarkjs — 8,845 constraints, 32/32 end-to-end Node tests pass</li>
+        <li><b>Merkle membership (Poseidon, depth 4)</b>, EdDSA issuer signature and nullifier all checked <b>inside the circuit</b></li>
+        <li><b>Replay protection:</b> each proof has a single-use nullifier; forgery attempts fail at witness generation (try the in-app Forgery Audit)</li>
+        <li><b>Real WebMCP:</b> 12 tools on document.modelContext, verified via getTools() — the same API ChatGPT's browser and Chrome consume</li>
+        <li><b>Real structures:</b> live RCSB PDB loads (4GQS, 2F9Q…), real CPIC Level A guideline content</li>
+      </ul>
+    </div>
+    <div class="card reveal">
+      <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#f59e0b" stroke-width="1.7"/><path d="M12 8v5M12 16.5v.5" stroke="#f59e0b" stroke-width="1.9" stroke-linecap="round"/></svg> Honestly labeled demo boundaries</h3>
+      <ul class="no">
+        <li><b>Synthetic patient files</b> ship with the repo — bring your own raw DNA export to prove it on real data, fully offline</li>
+        <li><b>Curator / issuer / prover run in one browser</b> for the demo; production splits them across lab, registry and patient</li>
+        <li><b>SNP-array scope:</b> CYP2D6 copy-number, HLA typing and UGT1A1 repeats are out of reach for consumer chips — the UI says so instead of faking it</li>
+        <li><b>Not medical advice:</b> a privacy-technology demonstration, clearly labeled in the app</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================= JUDGES ================= -->
+<section id="judges" style="padding-bottom: 40px;">
+  <div class="reveal">
+    <div class="sec-label">For judges — 60 seconds</div>
+    <h2>See the whole thing with one click.</h2>
+  </div>
+  <div class="quickstart reveal">
+    <h3>No API key. No signup. No data leaves your machine.</h3>
+    <p class="qs-sub">The in-page agent demo runs the full pipeline locally — the same tools a real WebMCP agent (ChatGPT in-app browser, Chrome with WebMCP enabled) discovers and calls.</p>
+    <div class="qs-steps">
+      <div class="qs-step">
+        <div class="n">01</div>
+        <h4>Open the app</h4>
+        <p>Click "Launch the Live Demo". Wait ~3 seconds for the Groth16 engine (wasm + proving key) to boot — the pill turns "ZK: Ready".</p>
+      </div>
+      <div class="qs-step">
+        <div class="n">02</div>
+        <h4>Click "Run Full Agent Demo"</h4>
+        <p>The AI asks its own questions and executes 7 WebMCP tools: parse → markers → safety → alternative → Groth16 proof → independent verification. Watch the HUD, the 3D helix and the consent gate react live.</p>
+      </div>
+      <div class="qs-step">
+        <div class="n">03</div>
+        <h4>Probe it</h4>
+        <p>Try "Prove Safety (ZK)" on any drug card, open a Merkle tree to inspect its authentication path, then hit the Forgery Audit and watch the circuit mathematically reject a fake claim.</p>
+      </div>
+    </div>
+    <p class="qs-note">
+      Testing with a real external agent: open the URL in <b>ChatGPT's in-app browser</b>, or Chrome 149+ with <code>chrome://flags/#enable-webmcp-testing</code> enabled — the agent will discover all 12 tools on its own.
+      Without WebMCP support the app degrades honestly to an identical local fallback (clearly labeled in the header pill).
+      Optional Gemini chat: paste your own API key (sent as a request header, never stored) — the entire demo works without it.
+    </p>
+  </div>
+</section>
+
+<!-- ================= FINAL CTA ================= -->
+<div class="final">
+  <h2 class="reveal">Precision medicine shouldn't cost you your privacy.</h2>
+  <p class="reveal">The WebMCP protocol made the browser an agent platform. GeneVault makes it a <b style="color:var(--text)">zero-knowledge clinic</b> — where the answer arrives, and the DNA stays home.</p>
+  <div class="hero-ctas reveal">
+    <a class="btn-hero btn-primary-h" href="genevault.html">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M8 5.5v13l11-6.5-11-6.5z" fill="currentColor"/></svg>
+      Run the Live Demo
+    </a>
+    <a class="btn-hero btn-ghost-h" href="#how">Re-read how it works</a>
+  </div>
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <span class="disclaim">NOT MEDICAL ADVICE — PRIVACY-TECHNOLOGY DEMONSTRATION</span>
+    <span>
+      <a href="genevault.html">App</a> &nbsp;·&nbsp;
+      <a href="https://github.com" target="_blank" rel="noopener">Source (GitHub)</a> &nbsp;·&nbsp;
+      <a href="https://webmcp.devpost.com" target="_blank" rel="noopener">WebMCP Challenge</a> &nbsp;·&nbsp;
+      MIT License
+    </span>
+  </div>
+</footer>
+
+<script>
+  // Reveal on scroll
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) { e.target.classList.add("on"); io.unobserve(e.target); }
+  }, { threshold: 0.12 });
+  document.querySelectorAll(".reveal").forEach((el, i) => {
+    el.style.transitionDelay = (i % 4) * 70 + "ms";
+    io.observe(el);
+  });
+</script>
+</body>
+</html>

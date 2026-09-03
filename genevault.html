@@ -1,0 +1,1564 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GeneVault — Precision Pharmacogenomics Bio-OS & 3D WebMCP Workstation</title>
+
+  <!-- Typography: Inter (ElevenLabs primary) + JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+
+
+  <!-- Core Libraries -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/snarkjs@0.7.5/build/snarkjs.min.js"></script>
+  <script src="./zk_core.js"></script>
+  <script src="./pgx_core.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Inter"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+            display: ['"Inter"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    /* =========================================================================
+       ELEVENLABS CLEAN WEB DASHBOARD DESIGN SYSTEM TOKENS & SURFACES
+       ========================================================================= */
+    :root {
+      /* ElevenLabs Light Palette */
+      --background: #ffffff;
+      --foreground: #09090b;
+      --card: #ffffff;
+      --card-foreground: #09090b;
+      --popover: #ffffff;
+      --popover-foreground: #09090b;
+      --primary: #09090b;
+      --primary-foreground: #ffffff;
+      --secondary: #f4f4f5;
+      --secondary-foreground: #09090b;
+      --muted: #f4f4f5;
+      --muted-foreground: #71717a;
+      --accent: #f4f4f5;
+      --accent-foreground: #09090b;
+      --destructive: #ef4444;
+      --destructive-foreground: #ffffff;
+      --border: #e4e4e7;
+      --input: #e4e4e7;
+      --ring: #18181b;
+      --radius: 0.375rem;
+
+      /* ElevenLabs Clean Neutral Palette (Light) */
+      --bg-base: #ffffff;
+      --bg-surface: #ffffff;
+      --bg-subtle: #fafafa;
+      --bg-surface-elevated: #f4f4f5;
+      --border-subtle: #e4e4e7;
+      --border-medium: #d4d4d8;
+      --border-active: #18181b;
+      --text-main: #09090b;
+      --text-muted: #52525b;
+      --text-faint: #71717a;
+      --primary-bg: #09090b;
+      --primary-fg: #ffffff;
+
+      /* Bridge Tokens for Layout */
+      --md-sys-color-surface: var(--bg-base);
+      --md-sys-color-surface-container-lowest: var(--bg-surface);
+      --md-sys-color-surface-container-low: var(--bg-subtle);
+      --md-sys-color-surface-container: var(--bg-subtle);
+      --md-sys-color-surface-container-high: var(--bg-surface-elevated);
+      --md-sys-color-surface-container-highest: #e4e4e7;
+      --md-sys-color-on-surface: var(--text-main);
+      --md-sys-color-on-surface-variant: var(--text-muted);
+      --md-sys-color-outline: var(--border-medium);
+      --md-sys-color-outline-variant: var(--border-subtle);
+      --md-sys-color-primary: var(--primary-bg);
+      --md-sys-color-on-primary: var(--primary-fg);
+      --md-sys-color-primary-container: #f4f4f5;
+      --md-sys-color-on-primary-container: #09090b;
+      --md-sys-color-secondary-container: #f4f4f5;
+      --md-sys-color-on-secondary-container: #09090b;
+      --splitter: var(--border-subtle);
+      --splitter-hover: #18181b;
+
+      --eleven-header-height: 3.25rem;
+      --shadow-elevation-1: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-elevation-2: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+      --shadow-elevation-3: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+    }
+
+    .dark {
+      /* ElevenLabs Dark Palette */
+      --background: #090a0d;
+      --foreground: #ffffff;
+      --card: #0f1013;
+      --card-foreground: #ffffff;
+      --popover: #0f1013;
+      --popover-foreground: #ffffff;
+      --primary: #ffffff;
+      --primary-foreground: #09090b;
+      --secondary: #1a1b20;
+      --secondary-foreground: #ffffff;
+      --muted: #1a1b20;
+      --muted-foreground: #a1a1aa;
+      --accent: #1a1b20;
+      --accent-foreground: #ffffff;
+      --destructive: #7f1d1d;
+      --destructive-foreground: #ffffff;
+      --border: rgba(255, 255, 255, 0.08);
+      --input: rgba(255, 255, 255, 0.12);
+      --ring: rgba(255, 255, 255, 0.2);
+
+      /* ElevenLabs Dark Surfaces (Obsidian Matte / Zinc) */
+      --bg-base: #090a0d;
+      --bg-surface: #0f1013;
+      --bg-subtle: #131418;
+      --bg-surface-elevated: #1a1b20;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-medium: rgba(255, 255, 255, 0.15);
+      --border-active: #ffffff;
+      --text-main: #ffffff;
+      --text-muted: #a1a1aa;
+      --text-faint: #71717a;
+      --primary-bg: #ffffff;
+      --primary-fg: #09090b;
+
+      /* Bridge Tokens for Layout (Dark) */
+      --md-sys-color-surface: var(--bg-base);
+      --md-sys-color-surface-container-lowest: var(--bg-surface);
+      --md-sys-color-surface-container-low: var(--bg-subtle);
+      --md-sys-color-surface-container: var(--bg-subtle);
+      --md-sys-color-surface-container-high: var(--bg-surface-elevated);
+      --md-sys-color-surface-container-highest: #26272e;
+      --md-sys-color-on-surface: var(--text-main);
+      --md-sys-color-on-surface-variant: var(--text-muted);
+      --md-sys-color-outline: var(--border-medium);
+      --md-sys-color-outline-variant: var(--border-subtle);
+      --md-sys-color-primary: var(--primary-bg);
+      --md-sys-color-on-primary: var(--primary-fg);
+      --md-sys-color-primary-container: rgba(255, 255, 255, 0.1);
+      --md-sys-color-on-primary-container: #ffffff;
+      --md-sys-color-secondary-container: rgba(255, 255, 255, 0.08);
+      --md-sys-color-on-secondary-container: #ffffff;
+      --splitter: var(--border-subtle);
+      --splitter-hover: #3f3f46;
+
+      --shadow-elevation-1: 0 1px 3px 0 rgba(0, 0, 0, 0.37);
+      --shadow-elevation-2: 0 4px 10px 0 rgba(0, 0, 0, 0.5);
+      --shadow-elevation-3: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
+    }
+
+    /* Universal Strict Border & Surface Reset — Prevents White Border Blowout */
+    *, ::before, ::after {
+      border-color: var(--border-subtle);
+    }
+
+    /* Base Typography & Reset */
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-base) !important;
+      color: var(--text-main) !important;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      letter-spacing: -0.011em;
+    }
+
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      vertical-align: middle;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      user-select: none;
+    }
+
+    /* Minimalist Slim Scrollbars */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-medium); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    /* =========================================================================
+       ELEVENLABS COLLAPSIBLE SIDEBAR CONTROLLER
+       ========================================================================= */
+    #main-sidebar {
+      transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    #main-sidebar.collapsed {
+      width: 58px !important;
+      min-width: 58px !important;
+    }
+    #main-sidebar.collapsed .sidebar-expand-text {
+      display: none !important;
+    }
+    #main-sidebar.collapsed .sidebar-nav-item {
+      justify-content: center !important;
+      padding: 9px 0 !important;
+    }
+    #main-sidebar.collapsed .sidebar-top-bar {
+      justify-content: center !important;
+      padding: 0 6px !important;
+    }
+    #main-sidebar.collapsed .sidebar-top-branding {
+      display: none !important;
+    }
+    #main-sidebar.collapsed .sidebar-footer-account {
+      justify-content: center !important;
+    }
+
+    /* Utility classes previously sourced from an external design-system sheet.
+       Now local so the app has zero dependency on third-party app assets. */
+    .scrollbar-none {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .scrollbar-none::-webkit-scrollbar {
+      display: none;
+    }
+    .hud-tab-btn {
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .hud-tab-btn:hover {
+      border-color: var(--border-subtle);
+    }
+    .hud-panel {
+      animation: hudPanelIn 0.18s ease;
+    }
+    @keyframes hudPanelIn {
+      from { opacity: 0; transform: translateY(2px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ---- Human-in-the-loop consent gate ---- */
+    .consent-gate {
+      border: 1px solid rgba(234, 179, 8, 0.45);
+      background: linear-gradient(135deg, rgba(234,179,8,0.10), rgba(234,179,8,0.04));
+      border-radius: 8px;
+    }
+    .consent-gate.waiting { animation: consentPulse 1.6s ease infinite; }
+    @keyframes consentPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(234,179,8,0.35); }
+      50% { box-shadow: 0 0 0 6px rgba(234,179,8,0.08); }
+    }
+    .consent-btn-allow { background: #059669; color: #fff; border: none; }
+    .consent-btn-allow:hover { background: #047857; }
+    .consent-btn-always { background: transparent; color: #059669; border: 1px solid #10b981; }
+    .consent-btn-always:hover { background: rgba(16,185,129,0.12); }
+    .consent-btn-deny { background: transparent; color: #dc2626; border: 1px solid #ef4444; }
+    .consent-btn-deny:hover { background: rgba(239,68,68,0.12); }
+
+    /* =========================================================================
+       ELEVENLABS DASHBOARD COMPONENT STYLES
+       ========================================================================= */
+
+    /* ElevenLabs Primary Button (High-Contrast Hero Button) */
+    .btn-primary, .m3-btn-filled {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      height: 32px;
+      padding: 0 14px;
+      border-radius: 6px;
+      background-color: var(--primary-bg);
+      color: var(--primary-fg);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      border: 1px solid transparent;
+      cursor: pointer;
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.08);
+      transition: all 0.15s ease;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .btn-primary:hover, .m3-btn-filled:hover {
+      opacity: 0.92;
+      transform: translateY(-0.5px);
+      box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.12);
+    }
+    .btn-primary:active, .m3-btn-filled:active {
+      transform: translateY(0);
+      opacity: 0.98;
+    }
+
+    /* ElevenLabs Secondary / Outlined Button */
+    .btn-secondary, .m3-btn-tonal {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 30px;
+      padding: 0 11px;
+      border-radius: 6px;
+      background-color: var(--bg-surface);
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+      font-size: 11.5px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      border: 1px solid var(--border-subtle);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .btn-secondary:hover, .m3-btn-tonal:hover {
+      background-color: var(--bg-surface-elevated);
+      border-color: var(--border-medium);
+      color: var(--text-main);
+    }
+    .btn-secondary:active, .m3-btn-tonal:active {
+      transform: scale(0.98);
+    }
+
+    /* ElevenLabs Icon Button */
+    .btn-icon, .m3-btn-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      background-color: transparent;
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .btn-icon:hover, .m3-btn-icon:hover {
+      background-color: var(--bg-surface-elevated);
+      border-color: var(--border-subtle);
+      color: var(--text-main);
+    }
+    .btn-icon:active, .m3-btn-icon:active {
+      transform: scale(0.95);
+    }
+
+    /* ElevenLabs Assist & Filter Chips */
+    .pill-chip, .m3-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 6px;
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      background-color: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+      transition: all 0.15s ease;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .pill-chip:hover, .m3-chip:hover {
+      background-color: var(--bg-surface-elevated);
+      color: var(--text-main);
+      border-color: var(--border-medium);
+    }
+    .pill-chip.active, .m3-chip.active {
+      background-color: var(--bg-surface-elevated);
+      color: var(--text-main);
+      border-color: var(--border-active);
+      font-weight: 600;
+    }
+
+    /* ElevenLabs Clean Dashboard Cards */
+    .m3-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      transition: all 0.15s ease;
+    }
+    .m3-card-elevated {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      box-shadow: var(--shadow-elevation-1);
+    }
+    .m3-card-elevated:hover {
+      border-color: var(--border-medium);
+    }
+
+    /* ElevenLabs Modal / Floating Windows */
+    .m3-dialog {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      box-shadow: var(--shadow-elevation-3);
+    }
+
+    /* ElevenLabs Docked Search Bar */
+    .m3-search-bar {
+      display: flex;
+      align-items: center;
+      height: 34px;
+      padding: 0 10px;
+      border-radius: 6px;
+      background-color: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+      transition: all 0.15s ease;
+    }
+    .m3-search-bar:focus-within {
+      background-color: var(--bg-surface);
+      border-color: var(--border-active);
+      box-shadow: 0 0 0 1px var(--border-active);
+    }
+
+    /* Resizable Splitters */
+    .splitter-v {
+      width: 4px;
+      cursor: col-resize;
+      background-color: var(--border-subtle);
+      position: relative;
+      transition: background-color 0.15s ease;
+      user-select: none;
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .splitter-v:hover, .splitter-v.dragging {
+      background-color: var(--splitter-hover);
+    }
+
+    .splitter-h {
+      height: 4px;
+      cursor: row-resize;
+      background-color: var(--border-subtle);
+      position: relative;
+      transition: background-color 0.15s ease;
+      user-select: none;
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .splitter-h:hover, .splitter-h.dragging {
+      background-color: var(--splitter-hover);
+    }
+
+    /* ElevenLabs Sidebar Item */
+    .sidebar-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .sidebar-nav-item:hover {
+      background-color: var(--bg-surface-elevated);
+      color: var(--text-main);
+    }
+    .sidebar-nav-item.active {
+      background-color: var(--bg-surface-elevated);
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    /* ElevenLabs Quick Action Studio Card */
+    .studio-action-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 14px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .studio-action-card:hover {
+      border-color: var(--border-medium);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-elevation-1);
+    }
+
+    #protein-viewer-3d {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body class="flex h-screen w-screen overflow-hidden select-none">
+
+  <!-- =========================================================================
+       01 · ELEVENLABS CLEAN LEFT SIDEBAR (COLLAPSIBLE SAAS RAIL)
+       ========================================================================= -->
+  <aside id="main-sidebar" class="w-60 shrink-0 flex flex-col z-20 border-r select-none h-screen" style="background-color: var(--bg-surface); border-color: var(--border-subtle);">
+    
+    <!-- Top Branding & Collapse Button -->
+    <div class="sidebar-top-bar h-[52px] px-3.5 flex items-center justify-between border-b shrink-0" style="border-color: var(--border-subtle);">
+      <div class="sidebar-top-branding flex items-center gap-2.5 overflow-hidden">
+        <div class="w-6 h-6 rounded flex items-center justify-center font-bold text-xs shrink-0" style="background-color: var(--primary-bg); color: var(--primary-fg);">
+          <span>II</span>
+        </div>
+        <div class="flex flex-col min-w-0">
+          <span class="font-semibold text-sm tracking-tight truncate" style="color: var(--text-main);">GeneVault</span>
+          <span class="text-[9.5px] leading-none truncate" style="color: var(--text-muted);">Cardiology Bio-OS</span>
+        </div>
+      </div>
+      <button id="sidebar-toggle-btn" onclick="toggleSidebar()" class="btn-icon shrink-0" style="width: 28px; height: 28px;" title="Collapse/Expand Sidebar">
+        <span class="material-symbols-outlined text-[17px]" id="sidebar-toggle-icon">side_navigation</span>
+      </button>
+    </div>
+
+    <!-- Navigation Menu Items -->
+    <div class="flex-1 overflow-y-auto p-2.5 space-y-4 text-xs">
+      
+      <!-- Primary Section -->
+      <div class="space-y-1">
+        <div class="sidebar-nav-item active" onclick="highlightDnaLocus('CYP2C19')" title="Prescribing Studio">
+          <span class="material-symbols-outlined text-[18px] shrink-0">home</span>
+          <span class="sidebar-expand-text truncate">Prescribing Studio</span>
+        </div>
+        <div class="sidebar-nav-item" onclick="setCenterViewMode('protein')" title="3D Molecular Lab">
+          <span class="material-symbols-outlined text-[18px] shrink-0">view_in_ar</span>
+          <span class="sidebar-expand-text truncate">3D Molecular Lab</span>
+        </div>
+        <div class="sidebar-nav-item" onclick="triggerSampleLoad()" title="Patient EHR Record">
+          <span class="material-symbols-outlined text-[18px] shrink-0">badge</span>
+          <span class="sidebar-expand-text truncate">Patient EHR Record</span>
+        </div>
+      </div>
+
+      <!-- Clinical Tools Section -->
+      <div class="space-y-1">
+        <div class="sidebar-expand-text px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+          Clinical Tools
+        </div>
+        <div class="sidebar-nav-item" onclick="simulateWebMcpAgentCall('check_drug_safety', { drugName: 'Plavix' })" title="Drug Safety Checker">
+          <span class="material-symbols-outlined text-[18px] shrink-0">medication</span>
+          <span class="sidebar-expand-text truncate">Drug Safety Checker</span>
+        </div>
+        <div class="sidebar-nav-item" onclick="setCenterViewMode('helix')" title="9-Locus DNA Helix">
+          <span class="material-symbols-outlined text-[18px] shrink-0">biotech</span>
+          <span class="sidebar-expand-text truncate">9-Locus DNA Helix</span>
+        </div>
+        <div class="sidebar-nav-item" onclick="switchRightTab('tab-webmcp')" title="WebMCP Tool Directory">
+          <span class="material-symbols-outlined text-[18px] shrink-0">api</span>
+          <span class="sidebar-expand-text truncate">WebMCP Tools (12)</span>
+        </div>
+      </div>
+
+      <!-- Privacy & ZK Prover Section -->
+      <div class="space-y-1">
+        <div class="sidebar-expand-text px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+          Privacy & Proofs
+        </div>
+        <div class="sidebar-nav-item" onclick="switchRightTab('tab-zk')" title="BN128 Groth16 Prover">
+          <span class="material-symbols-outlined text-[18px] shrink-0">shield</span>
+          <span class="sidebar-expand-text truncate">BN128 Groth16 Prover</span>
+        </div>
+        <div class="sidebar-nav-item" onclick="testAdversarialFalseClaim()" title="Forgery Audit Test">
+          <span class="material-symbols-outlined text-[18px] shrink-0">security_update_warning</span>
+          <span class="sidebar-expand-text truncate">Forgery Audit Test</span>
+        </div>
+        <div class="sidebar-nav-item" onclick="switchRightTab('tab-history')" title="Audit Trail & Ledger">
+          <span class="material-symbols-outlined text-[18px] shrink-0">history</span>
+          <span class="sidebar-expand-text truncate">Audit Trail & Ledger</span>
+        </div>
+        <div class="sidebar-nav-item" onclick="toggleJudgeGuideModal()" title="Compliance Protocol">
+          <span class="material-symbols-outlined text-[18px] shrink-0">verified_user</span>
+          <span class="sidebar-expand-text truncate">Compliance Protocol</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Patient & Account Footer -->
+    <div class="p-3 border-t shrink-0 space-y-2" style="border-color: var(--border-subtle); background-color: var(--bg-subtle);">
+      <div onclick="openPatientSwitcherModal()" class="sidebar-expand-text flex items-center justify-between px-1 cursor-pointer hover:opacity-80 transition" title="Click to switch patient EHR profile">
+        <div class="flex items-center gap-1.5 text-[11px] font-mono" style="color: var(--text-muted);">
+          <span class="h-2 w-2 rounded-full bg-emerald-500 shrink-0"></span>
+          <span id="sidebar-patient-name" class="truncate">EHR: Eleanor Vance</span>
+        </div>
+        <span id="sidebar-patient-mrn" class="text-[9px] px-1.5 py-0.2 rounded font-mono font-semibold border shrink-0" style="background-color: var(--bg-surface-elevated); border-color: var(--border-subtle); color: var(--text-main);">
+          MRN #9042-A
+        </span>
+      </div>
+
+      <div onclick="openPatientSwitcherModal()" class="sidebar-footer-account flex items-center gap-2 px-1 pt-1 cursor-pointer hover:opacity-80 transition" title="Click to switch patient EHR profile">
+        <div id="sidebar-doctor-avatar" class="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style="background-color: var(--bg-surface-elevated); color: var(--text-main); border: 1px solid var(--border-subtle);">
+          EV
+        </div>
+        <div class="sidebar-expand-text flex flex-col min-w-0">
+          <span id="sidebar-doctor-name" class="text-xs font-medium truncate" style="color: var(--text-main);">Dr. Eleanor Vance</span>
+          <span class="text-[10px] truncate" style="color: var(--text-muted);">Cardiology Prescriber</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- =========================================================================
+       02 · MAIN VIEWPORT CONTAINER (HEADER + HERO STUDIO + SPLIT WORKSTATION)
+       ========================================================================= -->
+  <div class="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+    
+    <!-- Top Header Bar: Breadcrumbs + Global Search + Action Triggers -->
+    <header class="h-[52px] px-5 flex items-center justify-between shrink-0 z-30 border-b" style="background-color: var(--bg-surface); border-color: var(--border-subtle);">
+      
+      <!-- Left: Breadcrumbs Navigation -->
+      <div class="flex items-center gap-2 text-xs">
+        <span style="color: var(--text-muted);">Cardiology Clinic</span>
+        <span style="color: var(--text-faint);">/</span>
+        <button onclick="openPatientSwitcherModal()" class="flex items-center gap-1 hover:underline cursor-pointer" style="color: var(--text-muted);" title="Click to switch active EHR patient">
+          <span id="breadcrumb-patient-name">Eleanor Vance (MRN #9042-A)</span>
+          <span class="material-symbols-outlined text-[14px]">arrow_drop_down</span>
+        </button>
+        <span style="color: var(--text-faint);">/</span>
+        <span class="font-medium" style="color: var(--text-main);">Precision Prescribing Studio</span>
+      </div>
+
+      <!-- Center: Working Global Search Bar (⌘K) -->
+      <div class="relative hidden md:flex items-center w-80 h-8 px-3 rounded-md border text-xs" style="background-color: var(--bg-subtle); border-color: var(--border-subtle); color: var(--text-muted);">
+        <span class="material-symbols-outlined text-[16px] mr-2">search</span>
+        <input id="global-search-input" oninput="handleGlobalSearch(this.value)" onfocus="handleGlobalSearch(this.value)" type="text" placeholder="Search drug, biomarker, or gene (⌘K)…" class="w-full bg-transparent text-xs focus:outline-none placeholder-zinc-400" style="color: var(--text-main);" autocomplete="off">
+        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded border ml-1 shrink-0 cursor-pointer" onclick="document.getElementById('global-search-input').focus()" style="background-color: var(--bg-surface); border-color: var(--border-subtle);">⌘K</span>
+
+        <!-- Global Search Auto-Complete Dropdown -->
+        <div id="global-search-dropdown" class="absolute top-9 left-0 w-96 rounded-lg border shadow-xl z-50 p-2 hidden space-y-1 backdrop-blur-md" style="background-color: var(--bg-surface); border-color: var(--border-medium); max-height: 380px; overflow-y: auto;">
+        </div>
+      </div>
+
+      <!-- Right: Primary Actions & Profile Controls -->
+      <div class="flex items-center gap-2">
+        
+        <!-- Telemetry Status Pills -->
+        <div id="zk-status-pill" class="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono border" style="background-color: var(--bg-surface-elevated); border-color: var(--border-subtle); color: var(--text-muted);">
+          <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+          <span>Groth16 ZK: Booting…</span>
+        </div>
+        <div id="webmcp-status-pill" class="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono border" style="background-color: var(--bg-surface-elevated); border-color: var(--border-subtle); color: var(--text-muted);">
+          <span class="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
+          <span>WebMCP: 12 Tools</span>
+        </div>
+
+        <!-- Prominent Load Demo Data Button -->
+        <button onclick="triggerSampleLoad()" class="btn-secondary" title="Load Eleanor Vance demo 23andMe genome data">
+          <span class="material-symbols-outlined text-[16px] text-emerald-500">upload_file</span>
+          <span>Load Demo Data</span>
+        </button>
+
+        <!-- 1-Click Complete Doctor Scenario (ElevenLabs Hero Primary Button) -->
+        <button onclick="runCompleteJudgeDemo()" class="btn-primary" title="Doctor prescribes Plavix -> WebMCP verifies in ZK -> Explains on 3D protein!">
+          <span class="material-symbols-outlined text-[16px]">play_circle</span>
+          <span>Run Doctor Scenario (Plavix)</span>
+        </button>
+
+        <button onclick="runFullAgentDemo()" class="btn-secondary" title="The AI asks its OWN questions and executes 7 WebMCP tools end-to-end: parse -> markers -> safety -> alternative -> Groth16 proof -> verification.">
+          <span class="material-symbols-outlined text-[16px]">auto_awesome</span>
+          <span>Run Full Agent Demo</span>
+        </button>
+
+        <!-- Toggle Right Inspector (ZK & WebMCP Rail) -->
+        <button id="right-dock-toggle-btn" onclick="toggleRightDock()" class="btn-icon" title="Toggle ZK & WebMCP Inspector (Right Sidebar)">
+          <span class="material-symbols-outlined text-[18px]" id="right-dock-toggle-icon">view_sidebar</span>
+        </button>
+
+        <!-- Theme Toggle (ElevenLabs Icon Button) -->
+        <button id="theme-toggle-btn" onclick="toggleTheme()" class="btn-icon" title="Toggle Light / Dark mode">
+          <span class="material-symbols-outlined text-[18px]" id="theme-icon">light_mode</span>
+        </button>
+
+        <!-- Copilot Drawer Toggle (ElevenLabs Icon Button) -->
+        <button onclick="toggleCopilotDrawer()" class="btn-icon" title="Open Clinical AI Copilot">
+          <span class="material-symbols-outlined text-[18px]">smart_toy</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Clinical Case Narrative Sub-Banner -->
+    <div class="h-9 px-5 border-b flex items-center justify-between text-xs shrink-0 select-none" style="background-color: var(--bg-subtle); border-color: var(--border-subtle);">
+      <div class="flex items-center gap-2.5 truncate">
+        <span class="px-2 py-0.5 rounded font-mono font-bold text-[9.5px] uppercase tracking-wider border" style="background-color: var(--bg-surface-elevated); border-color: var(--border-subtle); color: var(--text-main);">
+          Clinical Case
+        </span>
+        <span id="scenario-headline" class="truncate font-medium text-[11.5px]" style="color: var(--text-main);">
+          Cardiologist is prescribing Plavix after coronary stenting. AI Prescriber checks genetic safety via WebMCP without exposing patient DNA to the cloud.
+        </span>
+      </div>
+
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button onclick="simulateWebMcpAgentCall('check_drug_safety', { drugName: 'Plavix' })" class="btn-secondary" title="Execute WebMCP tool check_drug_safety">
+          <span class="material-symbols-outlined text-[14px]">shield</span>
+          <span>Check Plavix</span>
+        </button>
+        <button onclick="simulateWebMcpAgentCall('simulate_drug_docking', { drugName: 'Plavix' })" class="btn-secondary" title="Execute WebMCP tool simulate_drug_docking">
+          <span class="material-symbols-outlined text-[14px]">medication</span>
+          <span>Dock in 3D</span>
+        </button>
+        <button onclick="simulateWebMcpAgentCall('highlight_catalytic_pocket', { gene: 'CYP2C19' })" class="btn-secondary" title="Execute WebMCP tool highlight_catalytic_pocket">
+          <span class="material-symbols-outlined text-[14px]">adjust</span>
+          <span>Heme Pocket</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Doctor-Friendly Quick Actions Carousel -->
+    <div class="px-5 py-3 border-b flex items-center gap-3 overflow-x-auto shrink-0 scrollbar-none" style="background-color: var(--bg-surface); border-color: var(--border-subtle);">
+      <div class="text-[11px] font-semibold uppercase tracking-wider shrink-0" style="color: var(--text-muted);">
+        Quick Actions:
+      </div>
+
+      <div onclick="simulateWebMcpAgentCall('check_drug_safety', { drugName: 'Plavix' })" class="studio-action-card flex-row py-1.5 px-3 min-w-[150px] shrink-0">
+        <span class="w-2 h-2 rounded-full bg-red-500"></span>
+        <div class="text-left">
+          <div class="font-semibold text-xs leading-tight" style="color: var(--text-main);">Prescribe Plavix</div>
+          <div class="text-[10px]" style="color: var(--text-muted);">Check CYP2C19 safety</div>
+        </div>
+      </div>
+
+      <div onclick="setCenterViewMode('helix'); highlightDnaLocus('CYP2C19');" class="studio-action-card flex-row py-1.5 px-3 min-w-[150px] shrink-0">
+        <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+        <div class="text-left">
+          <div class="font-semibold text-xs leading-tight" style="color: var(--text-main);">3D DNA Double Helix</div>
+          <div class="text-[10px]" style="color: var(--text-muted);">9-locus chromosome map</div>
+        </div>
+      </div>
+
+      <div onclick="setCenterViewMode('protein'); loadProteinStructure('CYP2C19');" class="studio-action-card flex-row py-1.5 px-3 min-w-[150px] shrink-0">
+        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+        <div class="text-left">
+          <div class="font-semibold text-xs leading-tight" style="color: var(--text-main);">Protein Active Site</div>
+          <div class="text-[10px]" style="color: var(--text-muted);">PDB 4GQS crystal site</div>
+        </div>
+      </div>
+
+      <div onclick="switchRightTab('tab-zk'); testAdversarialFalseClaim();" class="studio-action-card flex-row py-1.5 px-3 min-w-[150px] shrink-0">
+        <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+        <div class="text-left">
+          <div class="font-semibold text-xs leading-tight" style="color: var(--text-main);">ZK Forgery Audit</div>
+          <div class="text-[10px]" style="color: var(--text-muted);">R1CS circuit rejection</div>
+        </div>
+      </div>
+
+      <div onclick="toggleJudgeGuideModal()" class="studio-action-card flex-row py-1.5 px-3 min-w-[150px] shrink-0">
+        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+        <div class="text-left">
+          <div class="font-semibold text-xs leading-tight" style="color: var(--text-main);">Compliance Guide</div>
+          <div class="text-[10px]" style="color: var(--text-muted);">HIPAA & GINA protocol</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =======================================================================
+         03 · MAIN WORKSPACE: FORMULARY + 3D VIEWPORT + RIGHT INSPECTOR
+         ======================================================================= -->
+    <div class="flex-1 flex overflow-hidden relative" id="workspace-container">
+
+      <!-- LEFT PANEL: DOCTOR FORMULARY RAIL -->
+      <aside id="left-dock" class="w-72 shrink-0 flex flex-col z-10 select-none overflow-hidden border-r" style="width: 260px; min-width: 220px; max-width: 400px; background-color: var(--bg-surface); border-color: var(--border-subtle);">
+        
+        <!-- Patient Header Card (Clickable to switch patient) -->
+        <div onclick="openPatientSwitcherModal()" class="p-3 border-b space-y-1 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/60 transition" style="background-color: var(--bg-subtle); border-color: var(--border-subtle);" title="Click to switch patient EHR profile">
+          <div class="flex items-center justify-between">
+            <div class="font-semibold text-xs flex items-center gap-1.5" style="color: var(--text-main);">
+              <span class="material-symbols-outlined text-[15px] text-blue-500">account_circle</span>
+              <span id="left-dock-patient-name">Eleanor Vance</span>
+            </div>
+            <span class="text-[9px] font-mono px-1.5 py-0.2 rounded font-semibold border text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-900">
+              EHR SYNCED
+            </span>
+          </div>
+          <div id="left-dock-patient-dx" class="text-[11px] leading-tight" style="color: var(--text-muted);">
+            <b>Dx:</b> Post-PCI Stent · <b>Rx:</b> Aspirin 81mg
+          </div>
+        </div>
+
+        <!-- Search Bar & File Upload -->
+        <div class="p-3 border-b space-y-2" style="background-color: var(--bg-surface); border-color: var(--border-subtle);">
+          <button onclick="triggerSampleLoad()" class="w-full py-1.5 px-3 rounded text-xs font-medium flex items-center justify-center gap-1.5 border transition mb-1" style="background-color: var(--bg-surface-elevated); border-color: var(--border-subtle); color: var(--text-main);" title="Load demo patient genome data">
+            <span class="material-symbols-outlined text-[15px] text-emerald-500">play_circle</span>
+            <span>⚡ Load Demo Patient DNA</span>
+          </button>
+          <div class="m3-search-bar relative">
+            <span class="material-symbols-outlined text-[16px] mr-2" style="color: var(--text-muted);">search</span>
+            <input id="drug-search-input" oninput="filterDrugCards()" type="text" placeholder="Search drug or biomarker…" class="w-full text-xs bg-transparent focus:outline-none placeholder-zinc-400" style="color: var(--text-main);">
+            <label class="cursor-pointer flex items-center justify-center p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition" title="Upload custom patient DNA file">
+              <span class="material-symbols-outlined text-[16px]" style="color: var(--text-muted);">attach_file</span>
+              <input id="genome-file-input" type="file" accept=".txt,.vcf,.tsv,.csv,text/plain" class="hidden">
+            </label>
+          </div>
+
+          <div class="flex items-center justify-between px-1">
+            <div id="file-name-label" class="text-[10.5px] font-mono truncate" style="color: var(--text-muted);">
+              No custom file synced.
+            </div>
+            <div id="file-status-pill" class="text-[10px] font-mono shrink-0"></div>
+          </div>
+        </div>
+
+        <!-- Drug List Grid (Populated dynamically by app.js) -->
+        <div id="drug-matrix-grid" class="flex-1 overflow-y-auto p-2.5 space-y-2">
+          <!-- Populated by app.js -->
+        </div>
+
+        <!-- Privacy Footer -->
+        <div class="p-3 border-t text-[10.5px] leading-relaxed" style="background-color: var(--bg-subtle); border-color: var(--border-subtle); color: var(--text-muted);">
+          <b>HIPAA & GINA Privacy:</b> Patient DNA stays inside local browser memory. AI cloud prescribers only receive cryptographic zero-knowledge certificates.
+        </div>
+      </aside>
+
+      <!-- LEFT SPLITTER -->
+      <div id="splitter-left" class="splitter-v" title="Drag to adjust width"></div>
+
+      <!-- CENTER HERO STAGE: 3D MOLECULAR LAB & PK CLEARANCE TRAY -->
+      <main id="center-stage" class="flex-1 flex flex-col min-w-0 relative overflow-hidden" style="background-color: var(--bg-base);">
+        
+        <!-- Viewport Top Floating Controls -->
+        <div class="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+          
+          <!-- Mode Switcher: 3D DNA Helix vs Protein Active Site -->
+          <div class="p-1 rounded-md border flex items-center gap-1.5 pointer-events-auto shadow-xs backdrop-blur-md" style="background-color: var(--bg-surface); border-color: var(--border-subtle);">
+            <div class="flex items-center gap-1">
+              <button onclick="setCenterViewMode('helix')" id="mode-btn-helix" class="pill-chip active text-xs font-medium">
+                <span class="material-symbols-outlined text-[14px]">biotech</span>
+                <span>3D DNA Helix</span>
+              </button>
+              <button onclick="setCenterViewMode('protein')" id="mode-btn-protein" class="pill-chip text-xs font-medium">
+                <span class="material-symbols-outlined text-[14px]">view_in_ar</span>
+                <span>Protein Active Site</span>
+              </button>
+            </div>
+
+            <!-- Active Locus Badge -->
+            <div class="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono font-medium border" style="background-color: var(--bg-surface-elevated); border-color: var(--border-subtle); color: var(--text-main);">
+              <span class="material-symbols-outlined text-[13px] text-emerald-500">grain</span>
+              <span id="active-protein-badge">CYP2C19 · 4GQS</span>
+            </div>
+
+            <!-- Full Gene Locus Selector (All 9 Genes Dropdown + Unclipped Chips) -->
+            <div class="flex items-center gap-1">
+              <select id="gene-selector-dropdown" onchange="onGeneDropdownChange(this.value)" class="pill-chip text-xs font-mono border cursor-pointer" style="background-color: var(--bg-surface-elevated); border-color: var(--border-subtle); color: var(--text-main);" title="Select from all 9 pharmacogenes">
+                <option value="CYP2C19">CYP2C19 (10q23.33 · Plavix)</option>
+                <option value="CYP2D6">CYP2D6 (22q13.2 · Codeine)</option>
+                <option value="CYP2C9">CYP2C9 (10q23.33 · Warfarin)</option>
+                <option value="VKORC1">VKORC1 (16p11.2 · Warfarin)</option>
+                <option value="SLCO1B1">SLCO1B1 (12p12.1 · Simvastatin)</option>
+                <option value="TPMT">TPMT (6p22.3 · Azathioprine)</option>
+                <option value="DPYD">DPYD (1p21.3 · Fluorouracil)</option>
+                <option value="HLA-B">HLA-B (6p21.33 · Ziagen)</option>
+                <option value="CYP3A5">CYP3A5 (7q22.1 · Tacrolimus)</option>
+              </select>
+            </div>
+
+            <!-- Gene Quick Selector Chips (All 9 Genes Visible) -->
+            <div class="hidden xl:flex items-center gap-1 overflow-x-auto" id="gene-selector">
+              <!-- Populated dynamically by app.js with all 9 genes -->
+            </div>
+          </div>
+
+          <!-- Working 3D Viewport Controls -->
+          <div class="p-1 rounded-md border flex items-center gap-1 pointer-events-auto text-xs font-mono shadow-xs backdrop-blur-md" style="background-color: var(--bg-surface); border-color: var(--border-subtle);">
+            <button onclick="toggleProteinSpin()" id="spin-toggle-btn" class="pill-chip text-xs">
+              <span class="material-symbols-outlined text-[14px]">sync</span>
+              <span id="spin-btn-text">Spin: ON</span>
+            </button>
+            <button onclick="resetProteinCamera()" class="pill-chip text-xs">
+              <span class="material-symbols-outlined text-[14px]">center_focus_strong</span>
+              <span>Reset</span>
+            </button>
+            <button onclick="toggleStyleMode()" id="style-mode-btn" class="pill-chip text-xs">
+              <span class="material-symbols-outlined text-[14px]">view_in_ar</span>
+              <span id="style-mode-text">Cartoon</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- FLOATING DIALOG: GENE BRIEF INSPECTOR -->
+        <div id="gene-brief-floating-window" class="m3-dialog absolute top-14 right-4 z-30 w-[340px] hidden pointer-events-auto overflow-hidden" style="max-height: 80vh; overflow-y: auto;">
+          <div class="flex items-center justify-between border-b pb-2 pt-2.5 px-4" style="border-color: var(--border-subtle);">
+            <div class="flex items-center gap-2">
+              <span class="h-2 w-2 rounded-full bg-orange-500 animate-pulse"></span>
+              <span id="brief-win-title" class="font-mono text-xs font-bold uppercase tracking-wider" style="color: var(--text-main);">
+                GENE BRIEF · <span class="text-orange-500">CYP2C19</span> 10q23.33
+              </span>
+            </div>
+            <button onclick="closeGeneBriefWindow()" class="btn-icon" style="width: 26px; height: 26px;" title="Close">
+              <span class="material-symbols-outlined text-[15px]">close</span>
+            </button>
+          </div>
+
+          <div class="p-4 space-y-3 text-xs">
+            <div>
+              <div class="font-mono text-[9.5px] font-bold text-orange-500 uppercase tracking-wider mb-1">
+                FOR NON-BIOLOGISTS
+              </div>
+              <p id="brief-analogy" class="leading-relaxed text-[11.5px]" style="color: var(--text-muted);">
+                Think of it as a security guard who must stamp your ticket before you can enter. If the guard is asleep (poor metabolizer), your ticket never gets validated.
+              </p>
+            </div>
+
+            <div>
+              <div class="font-mono text-[9.5px] font-bold text-orange-500 uppercase tracking-wider mb-1">
+                YOUR RESULT (LOCAL MEMORY)
+              </div>
+              <div id="brief-result" class="font-mono text-[11px] italic px-3 py-1.5 rounded border" style="background-color: var(--bg-subtle); border-color: var(--border-subtle); color: var(--text-muted);">
+                No file parsed yet — nothing known about you.
+              </div>
+            </div>
+
+            <div>
+              <div class="font-mono text-[9.5px] font-bold text-orange-500 uppercase tracking-wider mb-1">
+                COVERED DRUGS
+              </div>
+              <div id="brief-drugs" class="flex flex-wrap gap-1.5">
+                <span class="px-2 py-0.5 rounded text-[10.5px] border" style="background-color: var(--bg-subtle); border-color: var(--border-subtle); color: var(--text-muted);">
+                  💊 Clopidogrel
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <div class="font-mono text-[9.5px] font-bold text-orange-500 uppercase tracking-wider mb-1">
+                MARKER
+              </div>
+              <div id="brief-marker" class="font-mono text-[10.5px] px-2.5 py-1 rounded border" style="background-color: var(--bg-subtle); border-color: var(--border-subtle); color: var(--text-main);">
+                rs4244285 · *2 CYP2C19*2 (c.681G>A)
+              </div>
+            </div>
+
+            <div>
+              <div class="font-mono text-[9.5px] font-bold text-orange-500 uppercase tracking-wider mb-1">
+                POPULATION CONTEXT
+              </div>
+              <p id="brief-population" class="text-[11px] leading-relaxed" style="color: var(--text-muted);">
+                The *2 loss-of-function allele is carried by roughly 15–30% of people depending on ancestry.
+              </p>
+            </div>
+
+            <div class="pt-2 flex items-center gap-2 border-t" style="border-color: var(--border-subtle);">
+              <button onclick="loadProteinFromBrief()" class="flex-1 py-1.5 px-2.5 rounded text-xs font-medium flex items-center justify-center gap-1 border" style="background-color: var(--primary-bg); color: var(--primary-fg); border-color: transparent;">
+                <span class="material-symbols-outlined text-[15px]">view_in_ar</span>
+                <span>Full 3D Protein</span>
+              </button>
+              <button onclick="openProteinPipWindow(state.selectedGene || 'CYP2C19')" class="py-1.5 px-2.5 rounded text-xs font-medium flex items-center justify-center gap-1 border" style="background-color: var(--bg-surface-elevated); color: var(--text-main); border-color: var(--border-subtle);">
+                <span class="material-symbols-outlined text-[15px]">picture_in_picture_alt</span>
+                <span>Mini PIP</span>
+              </button>
+              <button onclick="askCopilotFromBrief()" class="py-1.5 px-2.5 rounded text-xs font-medium flex items-center justify-center gap-1 border" style="background-color: var(--bg-surface-elevated); color: var(--text-main); border-color: var(--border-subtle);">
+                <span class="material-symbols-outlined text-[15px]">chat</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- FLOATING CARD: MINI 3D PROTEIN PIP WINDOW -->
+        <div id="protein-floating-window" class="m3-dialog absolute top-14 left-4 z-30 w-72 h-80 hidden pointer-events-auto flex flex-col overflow-hidden">
+          <div class="flex items-center justify-between border-b pb-2 pt-2.5 px-3 shrink-0" style="border-color: var(--border-subtle);">
+            <div class="flex items-center gap-1.5">
+              <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span id="pip-protein-title" class="font-mono text-xs font-bold" style="color: var(--text-main);">
+                PROTEIN · <span class="text-emerald-500">CYP2C19</span> · 4GQS
+              </span>
+            </div>
+            <button onclick="closeProteinPipWindow()" class="btn-icon" style="width: 24px; height: 24px;" title="Close">
+              <span class="material-symbols-outlined text-[15px]">close</span>
+            </button>
+          </div>
+          <div class="flex-1 w-full relative min-h-0 m-2 rounded overflow-hidden border" style="background-color: var(--bg-surface); border-color: var(--border-subtle);">
+            <div id="protein-pip-canvas" class="w-full h-full"></div>
+          </div>
+          <div id="pip-protein-caption" class="px-3 pb-2.5 text-[10px] font-mono leading-tight" style="color: var(--text-muted);">
+            Experimental crystal structure fetched live from RCSB PDB.
+          </div>
+        </div>
+
+        <!-- DNA-TO-3D CLINICAL EXPLAINABILITY CARD -->
+        <div id="dna-to-3d-bridge-card" class="m3-dialog absolute top-14 left-4 z-20 max-w-sm p-4 text-xs space-y-2 transition-all hidden pointer-events-auto">
+          <div class="flex items-center justify-between border-b pb-1.5" style="border-color: var(--border-subtle);">
+            <span class="font-semibold flex items-center gap-1.5" style="color: var(--text-main);">
+              <span class="material-symbols-outlined text-[16px] text-blue-500">dna</span>
+              <span id="bridge-gene-title">CYP2C19 Mutation Map</span>
+            </span>
+            <span id="bridge-status-pill" class="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900">
+              LOSS OF FUNCTION
+            </span>
+          </div>
+          <div class="text-[11px] leading-snug space-y-1" style="color: var(--text-muted);">
+            <div><b>Patient DNA:</b> <span id="bridge-dna-variant" class="font-mono font-semibold text-blue-500">rs4244285 (c.681G>A · *2)</span></div>
+            <div><b>3D Protein Site:</b> <span id="bridge-pocket-desc">Active catalytic heme pocket (Cys435 / Heme loop)</span></div>
+            <div id="bridge-impact-desc" class="text-red-600 dark:text-red-400 font-medium">Plavix cannot be converted to active metabolite. High stent thrombosis risk.</div>
+            <div class="pt-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 border-t" style="border-color: var(--border-subtle);">
+              <span class="material-symbols-outlined text-[13px]">lightbulb</span>
+              <span>Recommendation: Switch to Prasugrel or Ticagrelor</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- DUAL VIEWPORT CONTAINER (DNA HELIX & PROTEIN VIEW) -->
+        <div id="viewport-container" class="flex-1 w-full relative min-h-[220px]">
+          
+          <!-- View A: 3D DNA Double Helix Canvas -->
+          <div id="dna-helix-container" class="w-full h-full absolute inset-0 select-none">
+            <div class="absolute top-4 left-4 z-10 font-mono text-[11px] pointer-events-none select-none tracking-wide flex items-center gap-1.5" style="color: var(--text-muted);">
+              <span class="text-emerald-500 font-bold">genome_view</span>
+              <span>— 9 pharmacogenes · chromosomal loci on 3D continuous double helix</span>
+            </div>
+            <canvas id="dna-helix-canvas" class="w-full h-full block cursor-grab active:cursor-grabbing"></canvas>
+            <div id="dna-helix-labels-overlay" class="absolute inset-0 pointer-events-none overflow-hidden">
+              <!-- Pinned chromosome gene locus billboard chips -->
+            </div>
+            <div class="absolute bottom-3 left-3 z-10 pointer-events-none max-w-lg">
+              <div class="p-2.5 rounded border text-[11px] pointer-events-auto leading-relaxed shadow-xs" style="background-color: var(--bg-surface); border-color: var(--border-subtle); color: var(--text-muted);">
+                <b>Interactive Genomic Map:</b> 9 pharmacogenes mapped to real human chromosome coordinates. Click any locus to inspect clinical CPIC impact.
+              </div>
+            </div>
+          </div>
+
+          <!-- View B: Full 3Dmol Protein Crystallography Viewport -->
+          <div id="protein-viewer-3d" class="w-full h-full absolute inset-0 hidden"></div>
+          
+          <div id="viewer-loading" class="absolute inset-0 flex items-center justify-center font-mono text-xs backdrop-blur-xs hidden" style="background-color: rgba(0,0,0,0.3); color: var(--text-main);">
+            <span class="flex items-center gap-2 p-3 rounded border shadow-lg" style="background-color: var(--bg-surface); border-color: var(--border-subtle);">
+              <span class="material-symbols-outlined text-[18px] animate-spin text-blue-500">progress_activity</span>
+              <span>Fetching crystallographic structure from RCSB PDB…</span>
+            </span>
+          </div>
+
+          <!-- Viewport Caption Card for Protein View -->
+          <div id="protein-caption-wrap" class="absolute bottom-3 left-3 z-10 pointer-events-none max-w-lg hidden">
+            <div id="protein-caption" class="p-2.5 rounded border text-[11px] pointer-events-auto leading-relaxed shadow-xs" style="background-color: var(--bg-surface); border-color: var(--border-subtle); color: var(--text-muted);">
+              CYP2C19 (PDB 4GQS): Human liver microsomal enzyme. Active catalytic pocket highlighted.
+            </div>
+          </div>
+        </div>
+
+        <!-- HORIZONTAL SPLITTER -->
+        <div id="splitter-bottom" class="splitter-h" title="Drag to adjust chart height"></div>
+
+        <!-- LOWER TRAY: PHARMACOKINETIC (PK) BLOOD CLEARANCE SIMULATION -->
+        <div id="bottom-dock" class="h-36 shrink-0 flex flex-col z-10 border-t" style="min-height: 100px; max-height: 350px; background-color: var(--bg-surface); border-color: var(--border-subtle);">
+          <div class="px-4 py-1.5 border-b flex items-center justify-between text-xs font-medium" style="border-color: var(--border-subtle); background-color: var(--bg-subtle);">
+            <div class="flex items-center gap-2" style="color: var(--text-main);">
+              <span class="material-symbols-outlined text-[15px] text-blue-500">timeline</span>
+              <span>Pharmacokinetic (PK) Blood Concentration & Clearance Curve</span>
+            </div>
+            <span id="pk-badge" class="text-[10px] font-mono" style="color: var(--text-muted);">One-Compartment Model</span>
+          </div>
+          
+          <div class="flex-1 flex px-4 py-2 gap-4 min-h-0">
+            <div class="flex-1 h-full relative">
+              <canvas id="pkChart"></canvas>
+            </div>
+
+            <!-- Clinical Legend -->
+            <div class="w-44 shrink-0 flex flex-col justify-center space-y-1 text-[10px] border-l pl-3" style="border-color: var(--border-subtle);">
+              <div class="font-semibold" style="color: var(--text-main);">Target Windows:</div>
+              <div class="flex items-center gap-1.5 text-red-500 font-medium">
+                <span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+                <span>&gt;80% Toxic Accumulation</span>
+              </div>
+              <div class="flex items-center gap-1.5 text-emerald-500 font-medium">
+                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                <span>20–80% Safe Therapeutic</span>
+              </div>
+              <p id="pk-caption" class="text-[9.5px] leading-tight pt-0.5" style="color: var(--text-muted);">
+                Scaled by patient metabolic phenotype.
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </main>
+
+      <!-- RIGHT SPLITTER -->
+      <div id="splitter-right" class="splitter-v" title="Drag to adjust width"></div>
+
+      <!-- RIGHT PANEL: ZK ENGINE, WEBMCP & CLINICAL AUDIT HISTORY (4 TABS) -->
+      <aside id="right-dock" class="w-72 shrink-0 flex flex-col z-10 select-none overflow-hidden border-l transition-all duration-200" style="width: 280px; min-width: 240px; max-width: 420px; background-color: var(--bg-surface); border-color: var(--border-subtle);">
+        
+        <!-- Tabs Header (ZK, WebMCP, History, Certs, and Close Button) -->
+        <div class="p-2 border-b flex items-center gap-1" style="border-color: var(--border-subtle); background-color: var(--bg-subtle);">
+          <button onclick="switchRightTab('tab-zk')" id="right-tab-btn-zk" class="pill-chip active flex-1 justify-center text-xs">
+            <span class="material-symbols-outlined text-[14px]">shield</span>
+            <span>ZK</span>
+          </button>
+          <button onclick="switchRightTab('tab-webmcp')" id="right-tab-btn-webmcp" class="pill-chip flex-1 justify-center text-xs">
+            <span class="material-symbols-outlined text-[14px]">hub</span>
+            <span>WebMCP</span>
+          </button>
+          <button onclick="switchRightTab('tab-history')" id="right-tab-btn-history" class="pill-chip flex-1 justify-center text-xs">
+            <span class="material-symbols-outlined text-[14px]">history</span>
+            <span>History</span>
+          </button>
+          <button onclick="switchRightTab('tab-alerts')" id="right-tab-btn-alerts" class="pill-chip flex-1 justify-center text-xs">
+            <span class="material-symbols-outlined text-[14px]">verified</span>
+            <span>Certs</span>
+          </button>
+          <button onclick="toggleRightDock()" class="btn-icon shrink-0" style="width: 26px; height: 26px;" title="Collapse Inspector">
+            <span class="material-symbols-outlined text-[15px]">close</span>
+          </button>
+        </div>
+
+        <!-- TAB 1: ZK ENGINE -->
+        <div id="right-panel-zk" class="flex-1 overflow-y-auto p-3 space-y-3 text-xs">
+          
+          <!-- Circuit Parameters Card -->
+          <div class="m3-card p-3 space-y-1.5" style="background-color: var(--bg-subtle);">
+            <div class="text-[11.5px] font-medium flex items-center justify-between" style="color: var(--text-main);">
+              <span class="flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-[15px] text-emerald-500">verified_user</span>
+                <span>BN128 Groth16 Prover</span>
+              </span>
+              <span class="font-mono text-emerald-500 font-bold text-[10px]">8,845 Constraints</span>
+            </div>
+            <div class="text-[10.5px] leading-relaxed" style="color: var(--text-muted);">
+              Poseidon Merkle Membership tree (depth 4, k=16 leaves). Evaluates whether a patient has a specific drug-metabolizing phenotype without revealing their genetic diplotype.
+            </div>
+          </div>
+
+          <!-- Adversarial Attack Simulator -->
+          <div class="m3-card p-3 space-y-2" style="background-color: var(--bg-subtle);">
+            <div class="flex items-center justify-between">
+              <span class="font-semibold text-[11.5px]" style="color: var(--text-main);">Security & Forgery Audit</span>
+              <span class="text-[9px] px-1.5 py-0.2 rounded font-mono font-medium border" style="background-color: var(--bg-surface); border-color: var(--border-subtle); color: var(--text-muted);">
+                Audit Test
+              </span>
+            </div>
+            <p class="text-[10.5px] leading-snug" style="color: var(--text-muted);">
+              Simulate a rogue client attempting to forge a counterfeit Groth16 proof (claiming normal metabolism when patient is poor).
+            </p>
+            <button onclick="testAdversarialFalseClaim()" class="w-full py-1.5 rounded text-xs font-medium flex items-center justify-center gap-1.5 text-red-500 border border-red-200 dark:border-red-900/60 hover:bg-red-50 dark:hover:bg-red-950/30 transition">
+              <span class="material-symbols-outlined text-[15px]">security_update_warning</span>
+              <span>Attempt False Forgery</span>
+            </button>
+            <div id="adversarial-result-box" class="text-[10px] font-mono" style="color: var(--text-muted);">
+              Click above to witness mathematical R1CS circuit rejection.
+            </div>
+          </div>
+
+          <!-- Merkle Claim Trees View -->
+          <div class="space-y-1.5">
+            <div class="text-[11px] font-medium flex items-center justify-between" style="color: var(--text-main);">
+              <span>Merkle Claim Trees (k=16):</span>
+              <span id="tree-count-badge" class="text-[10px] font-mono" style="color: var(--text-muted);">0 trees</span>
+            </div>
+            <div id="zk-claim-trees-container" class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+              <div class="p-3 text-center text-[10.5px]" style="color: var(--text-muted);">Load patient DNA to compute Merkle trees.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: WEBMCP (12 REGISTERED TOOLS) -->
+        <div id="right-panel-webmcp" class="hidden flex-1 overflow-y-auto p-3 space-y-2.5 text-xs">
+          <div class="m3-card p-2.5 text-[11px]" style="background-color: var(--bg-subtle);">
+            <div class="font-medium flex items-center gap-1.5" style="color: var(--text-main);">
+              <span class="material-symbols-outlined text-[15px] text-blue-500">api</span>
+              <span>WebMCP: 12 Registered Tools</span>
+            </div>
+            <span class="text-[9.5px]" style="color: var(--text-muted);">W3C WebML modelContext standard</span>
+          </div>
+          <div class="m3-card p-2.5 text-[11px] flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[15px] text-amber-500">how_to_reg</span>
+              <span style="color: var(--text-main);">Human-in-the-loop</span>
+            </div>
+            <button id="consent-policy-btn" onclick="toggleConsentPolicy()" class="px-2 py-0.5 rounded text-[9.5px] font-mono font-semibold border transition">ASK EVERY TIME</button>
+          </div>
+
+          <div id="webmcp-tool-list" class="space-y-1.5">
+            <!-- Populated dynamically by app.js -->
+          </div>
+        </div>
+
+        <!-- TAB 3: CLINICAL AUDIT HISTORY -->
+        <div id="right-panel-history" class="hidden flex-1 overflow-y-auto p-3 space-y-2.5 text-xs">
+          <div class="flex items-center justify-between pb-1.5 border-b" style="border-color: var(--border-subtle);">
+            <span class="font-semibold flex items-center gap-1.5" style="color: var(--text-main);">
+              <span class="material-symbols-outlined text-[15px] text-blue-500">history</span>
+              <span>Patient Audit History</span>
+            </span>
+            <button onclick="clearClinicalHistory()" class="text-[10px] hover:text-red-500 transition underline" style="color: var(--text-muted);">Clear</button>
+          </div>
+          
+          <div id="history-records-list" class="space-y-2">
+            <div class="p-3 text-center text-[10.5px]" style="color: var(--text-muted);">
+              No past clinical checks recorded. Click "Run Doctor Scenario" or check any medication to record history.
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: VERIFIED CERTIFICATES LEDGER -->
+        <div id="right-panel-alerts" class="hidden flex-1 overflow-y-auto p-3 space-y-2 text-xs">
+          <div class="text-[11px] font-medium" style="color: var(--text-main);">
+            <span>Active Clinical Certificates:</span>
+          </div>
+          <div id="guidelines-list" class="space-y-2">
+            <div class="p-3 text-center text-[10.5px]" style="color: var(--text-muted);">
+              No certificates yet. Check a medication to issue a verified certificate.
+            </div>
+          </div>
+        </div>
+
+        <!-- Audit Stream Terminal Tray -->
+        <div class="h-28 shrink-0 flex flex-col border-t" style="background-color: var(--bg-surface); border-color: var(--border-subtle);">
+          <div class="px-3 py-1 border-b text-[9.5px] font-mono flex items-center justify-between" style="border-color: var(--border-subtle); background-color: var(--bg-subtle); color: var(--text-muted);">
+            <div class="flex items-center gap-1">
+              <span class="material-symbols-outlined text-[13px]">terminal</span>
+              <span>Audit Stream</span>
+            </div>
+            <button onclick="clearAuditLedger()" class="hover:underline">Clear</button>
+          </div>
+          <div id="audit-ledger" class="flex-1 overflow-y-auto p-2 font-mono text-[9.5px] space-y-0.5" style="color: var(--text-muted);">
+            <div>// System online. Awaiting tool calls…</div>
+          </div>
+        </div>
+
+      </aside>
+
+    </div>
+
+  </div>
+
+  <!-- =========================================================================
+       04 · FLOATING NON-BLOCKING WEBMCP ACTION HUD (JUDGE-OPTIMIZED)
+       ========================================================================= -->
+  <div id="webmcp-action-hud-overlay" class="m3-dialog fixed bottom-5 right-5 z-40 w-[430px] max-w-[95vw] p-4 space-y-3 hidden pointer-events-auto transition-all shadow-2xl backdrop-blur-md">
+    
+    <!-- Header -->
+    <div class="flex items-start justify-between border-b pb-2.5" style="border-color: var(--border-subtle);">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-md flex items-center justify-center font-bold" style="background-color: var(--primary-bg); color: var(--primary-fg);">
+          <span class="material-symbols-outlined text-[17px]">smart_toy</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5">
+            <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold uppercase tracking-wider bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+              WebMCP Agent Runtime
+            </span>
+            <span id="hud-timestamp" class="text-[10px] font-mono" style="color: var(--text-muted);">18:05:20</span>
+          </div>
+          <h3 class="text-xs font-semibold mt-0.5" style="color: var(--text-main);" id="hud-title">
+            Tool: <span class="font-mono text-blue-500" id="hud-tool-name">check_drug_safety</span>
+          </h3>
+        </div>
+      </div>
+
+      <button onclick="closeWebMcpHud()" class="btn-icon" style="width: 26px; height: 26px;" title="Dismiss HUD">
+        <span class="material-symbols-outlined text-[15px]">close</span>
+      </button>
+    </div>
+
+    <!-- Human-in-the-Loop Consent Gate -->
+    <div id="hud-consent-gate" class="consent-gate p-2.5 hidden">
+      <div class="flex items-start gap-2">
+        <span class="material-symbols-outlined text-[18px] text-amber-500 mt-0.5">how_to_reg</span>
+        <div class="flex-1">
+          <div class="text-[11.5px] font-semibold" style="color: var(--text-main);">
+            Patient Consent Required <span class="text-[9px] font-mono px-1 py-0.2 rounded bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">HUMAN-IN-THE-LOOP</span>
+          </div>
+          <p id="hud-consent-question" class="text-[10.5px] leading-snug mt-0.5" style="color: var(--text-muted);">
+            An external agent is requesting a result derived from your genomic vault.
+          </p>
+          <div class="flex items-center gap-1.5 mt-2">
+            <button onclick="consentDecide('allow')" class="consent-btn-allow px-2.5 py-1 rounded text-[10.5px] font-semibold flex items-center gap-1">
+              <span class="material-symbols-outlined text-[13px]">check</span>Allow once
+            </button>
+            <button onclick="consentDecide('always')" class="consent-btn-always px-2.5 py-1 rounded text-[10.5px] font-semibold flex items-center gap-1">
+              <span class="material-symbols-outlined text-[13px]">done_all</span>Allow all session
+            </button>
+            <button onclick="consentDecide('deny')" class="consent-btn-deny px-2.5 py-1 rounded text-[10.5px] font-semibold flex items-center gap-1">
+              <span class="material-symbols-outlined text-[13px]">block</span>Deny
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="hud-consent-status" class="hidden text-[10px] font-mono flex items-center gap-1.5" style="color: var(--text-muted);"></div>
+    <!-- Plain-English Clinical Impact Banner (Judge-Friendly Explainer) -->
+    <div id="hud-clinical-summary-box" class="p-2.5 rounded-md border text-xs space-y-1 bg-blue-50/50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/60">
+      <div class="flex items-center justify-between">
+        <span class="font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[15px]">psychology</span>
+          <span>What Happened (Plain English):</span>
+        </span>
+        <span id="hud-action-badge" class="text-[9px] px-1.5 py-0.2 rounded font-mono font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+          VERIFIED
+        </span>
+      </div>
+      <p id="hud-plain-explanation" class="text-[11px] leading-relaxed text-slate-700 dark:text-slate-300">
+        WebMCP Agent verified patient diplotype via local BN128 Groth16 zk-SNARK. Zero genomic sequences left the client.
+      </p>
+    </div>
+
+    <!-- Stepper Progress (4 Clean Stages) -->
+    <div class="space-y-1.5">
+      <div class="text-[10.5px] flex justify-between" style="color: var(--text-muted);">
+        <span>Cryptographic & 3D Execution Pipeline:</span>
+        <span id="hud-step-indicator" class="font-semibold text-blue-500">Step 4 of 4: Completed</span>
+      </div>
+      
+      <div class="w-full h-1.5 rounded overflow-hidden" style="background-color: var(--border-subtle);">
+        <div id="hud-progress-bar" class="h-full w-full transition-all duration-300 rounded" style="background-color: var(--primary-bg);"></div>
+      </div>
+
+      <div class="grid grid-cols-4 gap-1 text-[9px] font-mono text-center pt-0.5" style="color: var(--text-muted);">
+        <div id="hud-step-1" class="font-semibold">1. Invocation</div>
+        <div id="hud-step-2" class="font-semibold">2. ZK Prover</div>
+        <div id="hud-step-3" class="font-semibold">3. 3D WebGL</div>
+        <div id="hud-step-4" class="font-bold text-emerald-500">4. Verified</div>
+      </div>
+    </div>
+
+    <!-- Status Callout (Dynamic Checkmark upon completion) -->
+    <div id="hud-status-banner" class="p-2 rounded border text-[10.5px] font-mono flex items-center gap-2" style="border-color: var(--border-subtle); background-color: var(--bg-subtle);">
+      <span class="material-symbols-outlined text-[16px] text-emerald-500" id="hud-status-icon">check_circle</span>
+      <span id="hud-status-text" class="truncate font-medium text-slate-800 dark:text-slate-200">
+        Action executed successfully.
+      </span>
+    </div>
+
+    <!-- Diagnostic Tabs -->
+    <div class="space-y-1.5">
+      <div class="flex items-center gap-1 border-b pb-1.5 text-[11px]" style="border-color: var(--border-subtle);">
+        <button onclick="switchHudTab('tab-insight')" id="hud-tab-insight-btn" class="hud-tab-btn pill-chip active text-[10px]">
+          Clinical Impact
+        </button>
+        <button onclick="switchHudTab('tab-3daction')" id="hud-tab-3daction-btn" class="hud-tab-btn pill-chip text-[10px]">
+          3D WebGL Action
+        </button>
+        <button onclick="switchHudTab('tab-signals')" id="hud-tab-signals-btn" class="hud-tab-btn pill-chip text-[10px]">
+          ZK Cryptography
+        </button>
+        <button onclick="switchHudTab('tab-args')" id="hud-tab-args-btn" class="hud-tab-btn pill-chip text-[10px]">
+          JSON Payload
+        </button>
+      </div>
+
+      <div id="hud-tab-insight" class="hud-panel p-2.5 rounded border text-xs leading-relaxed max-h-24 overflow-y-auto" style="border-color: var(--border-subtle); background-color: var(--bg-subtle); color: var(--text-main);">
+        <div id="hud-insight-details" class="space-y-1">
+          <div><b>Clinical Status:</b> Action validated against Clinical Pharmacogenetics Implementation Consortium (CPIC) guidelines.</div>
+          <div><b>Security:</b> 8,845 R1CS constraints satisfied over BN128 elliptic curve.</div>
+        </div>
+      </div>
+
+      <div id="hud-tab-3daction" class="hud-panel hidden p-2 rounded border font-mono text-[10px] max-h-24 overflow-y-auto leading-relaxed" style="border-color: var(--border-subtle); background-color: var(--bg-subtle); color: var(--text-main);">
+        <div id="hud-3daction-text">Target residue tracked. Camera oriented to catalytic pocket.</div>
+      </div>
+
+      <div id="hud-tab-signals" class="hud-panel hidden p-2 rounded border font-mono text-[9.5px] max-h-24 overflow-y-auto text-emerald-500 font-medium" style="border-color: var(--border-subtle); background-color: var(--bg-subtle);">
+        <pre id="hud-signals-json">// Computing signals…</pre>
+      </div>
+
+      <div id="hud-tab-args" class="hud-panel hidden p-2 rounded border font-mono text-[9.5px] max-h-24 overflow-y-auto" style="border-color: var(--border-subtle); background-color: var(--bg-subtle); color: var(--text-main);">
+        <pre id="hud-args-json">{ "drugName": "Plavix" }</pre>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="flex items-center justify-between pt-1 text-xs border-t" style="border-color: var(--border-subtle);">
+      <span class="flex items-center gap-1.5 text-emerald-500 font-medium text-[10px]">
+        <span class="material-symbols-outlined text-[14px]">shield</span>
+        <span>DNA Never Leaves Browser (HIPAA/GINA Compliant)</span>
+      </span>
+      <button onclick="closeWebMcpHud()" class="btn-primary py-1 px-3 text-[11px]">
+        Dismiss
+      </button>
+    </div>
+
+  </div>
+  
+  <!-- =========================================================================
+       05 · CLINICAL COMPLIANCE & PROTOCOL MODAL
+       ========================================================================= -->
+  <div id="judge-guide-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+    <div class="m3-dialog w-full max-w-lg p-6 space-y-4 relative">
+      <div class="flex items-start justify-between border-b pb-3" style="border-color: var(--border-subtle);">
+        <div>
+          <span class="px-2 py-0.5 rounded text-[9.5px] font-mono font-bold uppercase tracking-wider border" style="background-color: var(--bg-surface-elevated); border-color: var(--border-subtle); color: var(--text-main);">
+            Hospital Compliance Protocol
+          </span>
+          <h3 class="text-sm font-semibold mt-1" style="color: var(--text-main);">Who Uses GeneVault & Clinical Value</h3>
+        </div>
+        <button onclick="toggleJudgeGuideModal()" class="btn-icon" style="width: 28px; height: 28px;">
+          <span class="material-symbols-outlined text-[16px]">close</span>
+        </button>
+      </div>
+
+      <div class="space-y-2.5 text-xs leading-relaxed" style="color: var(--text-muted);">
+        <div class="m3-card p-3" style="background-color: var(--bg-subtle);">
+          <h4 class="font-semibold mb-1" style="color: var(--text-main);">1. Who is the User? (Doctors & Pharmacists)</h4>
+          Patients do not prescribe medications themselves. <b>Cardiologists, oncologists, hospital pharmacists, and EHR copilot agents</b> use this workstation to ensure prescribed medications match patient metabolic genetics before discharge.
+        </div>
+        <div class="m3-card p-3" style="background-color: var(--bg-subtle);">
+          <h4 class="font-semibold mb-1" style="color: var(--text-main);">2. Why AI Clouds Cannot Have Patient DNA</h4>
+          Hospitals cannot send a patient's unencrypted genomic file to external AI cloud APIs (like OpenAI or Google Cloud) because <b>HIPAA and genetic privacy laws (GINA)</b> strictly prohibit leaking permanent genetic identities.
+        </div>
+        <div class="m3-card p-3" style="background-color: var(--bg-subtle);">
+          <h4 class="font-semibold mb-1" style="color: var(--text-main);">3. Why the 3D Molecular Model is Essential</h4>
+          Doctors need to explain to patients (and visually verify themselves) <i>why</i> a medication is contraindicated. The 3D model shows the exact catalytic binding pocket affected by the patient's DNA mutation (e.g. CYP2C19*2 c.681G>A), showing visually why the drug cannot bind.
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-1">
+        <button onclick="toggleJudgeGuideModal()" class="btn-primary">Understood</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       06 · SLIDE-OVER COPILOT CHAT DRAWER
+       ========================================================================= -->
+  <aside id="copilot-drawer" class="fixed top-0 right-0 z-50 w-full sm:w-96 h-full border-l shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col" style="background-color: var(--bg-surface); border-color: var(--border-subtle);">
+    
+    <div class="p-3.5 border-b flex items-center justify-between" style="border-color: var(--border-subtle);">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-[18px] text-blue-500">smart_toy</span>
+        <span class="font-semibold text-xs" style="color: var(--text-main);">Clinical Prescribing Copilot</span>
+      </div>
+      <button onclick="toggleCopilotDrawer()" class="btn-icon" style="width: 26px; height: 26px;">
+        <span class="material-symbols-outlined text-[16px]">close</span>
+      </button>
+    </div>
+
+    <div class="p-3 border-b space-y-1.5" style="border-color: var(--border-subtle); background-color: var(--bg-subtle);">
+      <div class="grid grid-cols-2 gap-2">
+        <input id="api-key-input" type="password" placeholder="Gemini API Key" class="border text-xs px-2.5 py-1 rounded font-mono" style="border-color: var(--border-subtle); background-color: var(--bg-surface); color: var(--text-main);">
+        <input id="model-input" type="text" value="gemini-2.5-flash" class="border text-xs px-2.5 py-1 rounded font-mono" style="border-color: var(--border-subtle); background-color: var(--bg-surface); color: var(--text-main);">
+      </div>
+      <p class="text-[9.5px] font-mono px-1" style="color: var(--text-muted);">Header-only memory token.</p>
+    </div>
+
+    <!-- Suggested Doctor Inquiries -->
+    <div class="p-3 border-b space-y-1.5" style="border-color: var(--border-subtle); background-color: var(--bg-surface);">
+      <div class="text-[9.5px] font-semibold uppercase tracking-wider font-mono" style="color: var(--text-muted);">Suggested Doctor Inquiries:</div>
+      <div class="flex flex-wrap gap-1.5">
+        <button onclick="askCopilot('Can this patient safely take Plavix after stenting?')" class="pill-chip text-[10px]">
+          Can patient take Plavix?
+        </button>
+        <button onclick="askCopilot('What is the Warfarin bleeding risk for CYP2C9 and VKORC1?')" class="pill-chip text-[10px]">
+          Warfarin Bleeding Risk
+        </button>
+        <button onclick="askCopilot('Check Simvastatin SLCO1B1 myopathy risk')" class="pill-chip text-[10px]">
+          Simvastatin Toxicity
+        </button>
+        <button onclick="askCopilot('What CPIC alternatives exist for CYP2C19 poor metabolizers?')" class="pill-chip text-[10px]">
+          CPIC Alternatives
+        </button>
+      </div>
+    </div>
+
+    <div id="chat-stream-box" class="flex-1 p-3 overflow-y-auto space-y-2 text-xs">
+      <div class="m3-card p-3 text-xs" style="background-color: var(--bg-subtle); color: var(--text-muted);">
+        Ask medication safety questions or click a suggested inquiry above.
+      </div>
+    </div>
+
+    <form id="agent-prompt-form" onsubmit="handleUserPrompt(event)" class="p-3 border-t flex gap-2" style="border-color: var(--border-subtle);">
+      <input id="agent-prompt-input" type="text" placeholder="Ask medication question…" class="flex-1 border text-xs px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-blue-500" style="border-color: var(--border-subtle); background-color: var(--bg-surface); color: var(--text-main);">
+      <button type="submit" class="btn-primary px-3 py-1 text-xs font-medium">Send</button>
+    </form>
+  </aside>
+
+
+  <!-- =========================================================================
+       07 · PATIENT EHR DIRECTORY MODAL (4 REAL CLINICAL CASES)
+       ========================================================================= -->
+  <div id="patient-switcher-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+    <div class="m3-dialog w-full max-w-xl p-6 space-y-4 relative">
+      <div class="flex items-start justify-between border-b pb-3" style="border-color: var(--border-subtle);">
+        <div>
+          <span class="px-2 py-0.5 rounded text-[9.5px] font-mono font-bold uppercase tracking-wider border" style="background-color: var(--bg-surface-elevated); border-color: var(--border-subtle); color: var(--text-main);">
+            Hospital EHR Directory
+          </span>
+          <h3 class="text-sm font-semibold mt-1" style="color: var(--text-main);">Select Active Patient Clinical Profile</h3>
+        </div>
+        <button onclick="closePatientSwitcherModal()" class="btn-icon" style="width: 28px; height: 28px;">
+          <span class="material-symbols-outlined text-[16px]">close</span>
+        </button>
+      </div>
+
+      <div class="text-xs leading-relaxed" style="color: var(--text-muted);">
+        Select a patient to load real genomic diplotypes, evaluate adverse drug risks, and generate zero-knowledge certificates in real-time:
+      </div>
+
+      <div class="space-y-2 max-h-[60vh] overflow-y-auto pr-1" id="patient-profiles-list">
+        <!-- Populated dynamically by app.js -->
+      </div>
+
+      <div class="flex items-center justify-between pt-2 border-t text-xs" style="border-color: var(--border-subtle);">
+        <label class="cursor-pointer btn-secondary">
+          <span class="material-symbols-outlined text-[15px]">upload_file</span>
+          <span>Upload Custom DNA File</span>
+          <input type="file" accept=".txt,.vcf,.tsv,.csv,text/plain" onchange="if(this.files[0]) { handleFileSelect(this.files[0]); closePatientSwitcherModal(); }" class="hidden">
+        </label>
+        <button onclick="closePatientSwitcherModal()" class="btn-primary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       08 · MERKLE PROOF TREE INSPECTOR MODAL
+       ========================================================================= -->
+  <div id="merkle-proof-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+    <div class="m3-dialog w-full max-w-lg p-5 space-y-3 relative">
+      <div class="flex items-start justify-between border-b pb-2.5" style="border-color: var(--border-subtle);">
+        <div>
+          <span class="px-2 py-0.5 rounded text-[9.5px] font-mono font-bold uppercase tracking-wider border" style="background-color: var(--bg-surface-elevated); border-color: var(--border-subtle); color: var(--text-main);">
+            ZK Cryptographic Audit
+          </span>
+          <h3 id="proof-inspector-title" class="text-xs font-semibold mt-1" style="color: var(--text-main);">
+            Merkle Claim Tree Proof Inspector
+          </h3>
+        </div>
+        <button onclick="closeMerkleProofModal()" class="btn-icon" style="width: 26px; height: 26px;">
+          <span class="material-symbols-outlined text-[15px]">close</span>
+        </button>
+      </div>
+
+      <div id="proof-inspector-content" class="space-y-2.5 text-xs font-mono">
+        <!-- Populated dynamically with tree root, path elements, leaf index, and signatures -->
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2 border-t" style="border-color: var(--border-subtle);">
+        <button onclick="closeMerkleProofModal()" class="btn-secondary">Dismiss</button>
+        <button id="proof-verify-btn" onclick="executeProofFromInspector()" class="btn-primary">
+          <span class="material-symbols-outlined text-[15px]">verified</span>
+          <span>Verify Proof in Groth16 Circuit</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Script -->
+  <script src="./app.js"></script>
+</body>
+</html>
