@@ -5,38 +5,6 @@ The browser proves drug safety to an AI agent with mathematical certainty — th
 
 > **The 20-second version:** For ~30% of people, the common blood thinner clopidogrel (Plavix) doesn't work — the first sign can be a fatal clot. Guidelines say *check the patient's genetics first*. But nobody should upload their DNA to an AI or cloud: you can change a leaked password, never your genome. **GeneVault registers 12 tools on `document.modelContext` so any AI agent can ask the browser directly — and the browser answers with a Groth16 zk-SNARK proof, not with your DNA.**
 
----
-
-## ⚡ Judge quickstart (60 seconds, no API key, no signup)
-
-```bash
-# 1. Serve the folder (required: file:// cannot fetch the circuit artifacts)
-python3 -m http.server 8000
-# 2. Open http://localhost:8000/            ← landing page
-#    Open http://localhost:8000/genevault.html  ← the app
-# 3. Click  "Run Full Agent Demo"
-```
-
-One click — the in-page AI agent **asks its own questions** and executes **7 WebMCP tools end-to-end**:
-
-```
-parse_genomic_file → list_detected_markers → check_drug_safety(Plavix)
-   → recommend_alternative(Plavix) → generate_zk_proof(CYP2C19) → verify_zk_proof(...)
-```
-
-Watch the **WebMCP Agent Runtime HUD** (bottom-right), the **3D DNA helix** re-orienting live, and the
-**human-in-the-loop consent gate** controlling every release. Then try the **Forgery Audit** button and
-watch the R1CS circuit *mathematically refuse* to prove a false claim.
-
-**Testing with a real external agent:** open the hosted URL in **ChatGPT's in-app browser** (supports
-WebMCP natively) or **Chrome 149+** with `chrome://flags/#enable-webmcp-testing` → *Enabled* → relaunch.
-The status pill turns green: `WebMCP: 12/12 Active`. Without WebMCP support the app runs an identical,
-honestly-labeled local fallback — the full demo still works.
-
-> 💡 No Gemini API key is needed for judging. The optional in-page chat asks for your own key
-> (sent as a `x-goog-api-key` **request header**, memory-only, never stored) — everything else is keyless.
-
----
 
 ## What's actually real
 
