@@ -35,6 +35,7 @@ const state = {
   consentAutoTimer: null,
   inExternalCall: false,
   agentDemoRunning: false,
+  structureLoadedGene: null, // gene whose PDB structure is currently loaded in the 3D viewer
 };
 // ---------------------------------------------------------------------------
 // 00 · CLINICAL PRESCRIBER FORMULARY & PATIENT EHR PROFILES (TOP-LEVEL)
@@ -1240,6 +1241,23 @@ function highlightDnaLocus(gene) {
 // ---------------------------------------------------------------------------
 // Dual Mode Switcher (DNA Helix vs Protein Active Site)
 // ---------------------------------------------------------------------------
+// Reveal the crystallography viewport without triggering a structure load
+// (no recursion — used by agent-driven 3D tools so the protein is actually VISIBLE)
+function showProteinViewport() {
+  state.centerViewMode = "protein";
+  const helixContainer = document.getElementById("dna-helix-container");
+  const proteinContainer = document.getElementById("protein-viewer-3d");
+  const captionWrap = document.getElementById("protein-caption-wrap");
+  const btnHelix = document.getElementById("mode-btn-helix");
+  const btnProtein = document.getElementById("mode-btn-protein");
+  if (helixContainer) helixContainer.classList.add("hidden");
+  if (proteinContainer) proteinContainer.classList.remove("hidden");
+  if (captionWrap) captionWrap.classList.remove("hidden");
+  if (btnHelix) btnHelix.className = "pill-chip text-xs font-medium";
+  if (btnProtein) btnProtein.className = "pill-chip active text-xs font-medium";
+  ensureProteinViewerInitialized();
+}
+
 function setCenterViewMode(mode) {
   state.centerViewMode = mode;
   const helixContainer = document.getElementById("dna-helix-container");
@@ -1266,10 +1284,7 @@ function setCenterViewMode(mode) {
     if (helixContainer) helixContainer.classList.add("hidden");
     if (proteinContainer) proteinContainer.classList.remove("hidden");
     if (captionWrap) captionWrap.classList.remove("hidden");
-    if (btnHelix) btnHelix.className = "pill-chip text-xs font-medium";
-    if (btnProtein) btnProtein.className = "pill-chip active text-xs font-medium";
-
-    ensureProteinViewerInitialized();
+    showProteinViewport();
     loadProteinStructure(state.selectedGene || "CYP2C19");
   }
 }
@@ -1925,6 +1940,8 @@ function switchHudTab(tabId) {
 // ---------------------------------------------------------------------------
 async function loadProteinStructure(gene) {
   ensureProteinViewerInitialized();
+  // Agent-driven calls arrive while the helix view is active — make the protein viewport visible
+  if (state.centerViewMode !== "protein") showProteinViewport();
   const geneDef = PGXCore.geneDefFor(gene);
   if (!geneDef) return { status: "error", message: "Unknown gene: " + gene };
   if (!viewer3D) return { status: "error", message: "3D viewer not initialized" };
@@ -1971,6 +1988,7 @@ async function loadProteinStructure(gene) {
             cap.innerHTML = `<b>${geneDef.gene} (${pdb.id}):</b> ${escapeHtml(pdb.note)}`;
           }
           recordAuditLog("Loaded experimental PDB " + pdb.id + " for " + geneDef.gene, "HUMAN_MANUAL");
+          state.structureLoadedGene = geneDef.gene;
           done({ status: "success", gene: geneDef.gene, protein: geneDef.protein, pdbId: pdb.id, organism: pdb.organism, note: pdb.note });
         } catch (e) {
           done({ status: "error", message: "Render error: " + e.message });
@@ -2749,7 +2767,7 @@ const WEBMCP_TOOLS = [
   },
   {
     name: "check_drug_safety",
-    description: "Safety assessment for a covered drug (Plavix, Warfarin, Simvastatin, Codeine, 5-FU, Abacavir, Tacrolimus, etc.) using Groth16 zk-SNARK proof.",
+    description: "Safety verdict for a covered drug (Plavix, Warfarin, Simvastatin, Codeine, 5-FU, Abacavir, Tacrolimus, etc.) — Groth16-proven on-device, zero genotypes released. Auto-renders the drug's target enzyme in the live 3D viewport.",
     inputSchema: {
       type: "object",
       properties: { drugName: { type: "string", description: "Medication name" } },
@@ -2786,7 +2804,7 @@ const WEBMCP_TOOLS = [
   },
   {
     name: "visualize_variant",
-    description: "Load real PDB structure into 3D viewer (CYP2C19 4GQS, HLA-B 3VRI, etc.) and overlay PK curve.",
+    description: "Switch the main viewport from the DNA helix to the REAL crystallographic 3D protein (CYP2C19 4GQS, HLA-B 3VRI, etc.) and overlay the drug PK curve. Use after check_drug_safety to show the patient the enzyme behind the verdict.",
     inputSchema: {
       type: "object",
       properties: { gene: { type: "string", description: "Gene symbol" } },
@@ -2809,7 +2827,7 @@ const WEBMCP_TOOLS = [
   },
   {
     name: "recommend_alternative",
-    description: "Alternative therapies when a proven phenotype makes target drug dangerous.",
+    description: "Alternative therapies (e.g. ticagrelor/prasugrel for clopidogrel poor metabolizers) when a proven phenotype makes the drug dangerous. Call after check_drug_safety when risk is elevated.",
     inputSchema: {
       type: "object",
       properties: { drugName: { type: "string", description: "Drug name" } },
@@ -2833,6 +2851,7 @@ const WEBMCP_TOOLS = [
         drug: hit.drug,
         alternatives: hit.drugDef.alternatives,
         note: hit.drugDef.alternativeNote,
+        next: "Call simulate_drug_docking({drugName: \"" + hit.drug + "\"}) to show why on the 3D enzyme, or annotate_structure({text}) to pin this guidance on the viewport.",
         disclaimer: PGXCore.PGX_DISCLAIMER,
       };
 
@@ -2843,7 +2862,7 @@ const WEBMCP_TOOLS = [
   // Real-time 3D Viewport Control Tools
   {
     name: "highlight_catalytic_pocket",
-    description: "Real-time 3D control: Zoom and highlight catalytic heme pocket/active cleft.",
+    description: "Real-time 3D control: zoom the live protein viewport onto the catalytic heme pocket / active cleft and highlight where the patient's variant impedes drug metabolism.",
     inputSchema: {
       type: "object",
       properties: {
@@ -2854,6 +2873,8 @@ const WEBMCP_TOOLS = [
     },
     execute: async ({ gene, color }) => {
       openWebMcpHud("highlight_catalytic_pocket", { gene, color });
+      showProteinViewport();
+      if (!state.structureLoadedGene) await loadProteinStructure(String(gene || "CYP2C19"));
       updateWebMcpHudStep(3, "3 of 5: Transforming 3D Space", "Orienting camera to locus & active pocket…");
       const res = await highlightCatalyticPocket(gene, color);
       updateWebMcpHudStep(5, "5 of 5: 3D Reflow Complete", "Active pocket highlighted.", null, res, "Catalytic pocket centered. Locus activated on 3D DNA Double Helix.");
@@ -2862,7 +2883,7 @@ const WEBMCP_TOOLS = [
   },
   {
     name: "simulate_drug_docking",
-    description: "Real-time 3D control: Dock drug substrate (e.g. Plavix, Warfarin) directly into catalytic cleft in 3D.",
+    description: "Visual explanation: dock the actual drug substrate (e.g. Plavix, Warfarin) into the enzyme's catalytic cleft in the live 3D viewport — shows WHY the phenotype matters. Auto-loads the structure if not yet rendered.",
     inputSchema: {
       type: "object",
       properties: {
@@ -2873,6 +2894,9 @@ const WEBMCP_TOOLS = [
     },
     execute: async ({ drugName, gene }) => {
       openWebMcpHud("simulate_drug_docking", { drugName, gene });
+      showProteinViewport();
+      const targetGene = gene ? String(gene) : String((PGXCore.findDrug(String(drugName || "")) || {}).gene || "");
+      if (!state.structureLoadedGene && targetGene) await loadProteinStructure(targetGene);
       updateWebMcpHudStep(3, "3 of 5: Computing Molecular Docking", "Evaluating Gibbs binding free energy ΔG…");
       const res = await simulateDrugDocking(drugName, gene);
       updateWebMcpHudStep(5, "5 of 5: Docked in 3D", "Substrate locked into catalytic cleft.", null, res, "Docked " + drugName + " with ΔG = -8.7 kcal/mol into 3D binding site.");
@@ -3054,6 +3078,24 @@ function deniedResponse(toolName) {
 // ---------------------------------------------------------------------------
 // Tool Implementations
 // ---------------------------------------------------------------------------
+// Auto-render the involved enzyme in the 3D viewport (capped so agent calls stay snappy).
+// Honest by design: rendered / pending / failed are reported truthfully to the agent.
+async function autoVisualizeGene(gene, drug) {
+  try {
+    const p = loadProteinStructure(gene);
+    const r = await Promise.race([p, new Promise(res => setTimeout(() => res(null), 8000))]);
+    if (r && r.status === "success") {
+      return { gene: r.gene, protein: r.protein, pdbId: r.pdbId, organism: r.organism, rendered: true, note: "Auto-rendered in the 3D viewport after this assessment." };
+    }
+    if (r) {
+      return { gene: r.gene || gene, rendered: false, note: "3D fetch failed (" + String(r.message || "").slice(0, 80) + "). Call visualize_variant to retry." };
+    }
+    return { gene, rendered: "pending", note: "3D structure still streaming into the viewport; call visualize_variant if it does not appear." };
+  } catch (e) {
+    return { gene, rendered: false, note: "3D viewer unavailable in this browser." };
+  }
+}
+
 async function toolCheckDrugSafety(drugName) {
   openWebMcpHud("check_drug_safety", { drugName });
   recordAuditLog("WebMCP Tool Invoked: check_drug_safety('" + drugName + "')", "WEBMCP_TOOL");
@@ -3123,6 +3165,10 @@ async function toolCheckDrugSafety(drugName) {
     });
 
     const finalRes = { status: "assessed", drug: hit.drug, evidence: results, combinedAssessment: tier, disclaimer: PGXCore.PGX_DISCLAIMER };
+    finalRes.visualized = await autoVisualizeGene(geneA, hit.drug);
+    finalRes.next = finalRes.visualized.rendered
+      ? geneA + " (" + finalRes.visualized.pdbId + ") is rendered in the 3D viewport. Call highlight_catalytic_pocket or simulate_drug_docking to inspect the binding site."
+      : "Call visualize_variant to load the 3D enzyme structure.";
     updateWebMcpHudStep(5, "5 of 5: Certificate Issued", "Dual zero-knowledge proof verified.", null, finalRes, "Oriented 3D double helix to CYP2C9 & VKORC1 loci.");
     return finalRes;
   }
@@ -3178,6 +3224,13 @@ async function toolCheckDrugSafety(drugName) {
     geneCaveat: geneDef.limitation || null,
     disclaimer: PGXCore.PGX_DISCLAIMER,
   };
+
+  // The verdict ships with its structural context: auto-render the target enzyme in 3D.
+  finalRes.visualized = await autoVisualizeGene(hit.gene, hit.drug);
+  const riskElevated = advice.risk === "high" || String(advice.risk || "").indexOf("reduced") !== -1;
+  finalRes.next = finalRes.visualized.rendered
+    ? geneDef.gene + " (" + finalRes.visualized.pdbId + ") is rendered in the 3D viewport. Call simulate_drug_docking({drugName: \"" + hit.drug + "\"}) to show why on the structure, or recommend_alternative" + (riskElevated ? " since risk is elevated." : ".")
+    : "Call visualize_variant({gene: \"" + geneDef.gene + "\"}) to load the 3D enzyme structure, or recommend_alternative if the risk is elevated.";
 
   updateWebMcpHudStep(5, "5 of 5: Certificate Issued", "Proof verified! Delivered clinical certificate to agent.", proofRes.publicSignals, finalRes, "Oriented 3D double helix to " + hit.gene + " locus.");
   return finalRes;
