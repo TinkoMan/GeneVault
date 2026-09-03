@@ -1,15 +1,15 @@
 {
   "name": "genevault",
   "version": "1.0.0",
-  "description": "Privacy-preserving pharmacogenomics with WebMCP + real Groth16 zk-SNARKs. DNA never leaves the browser.",
+  "description": "GeneVault Precision Pharmacogenomics Bio-OS",
   "main": "app.js",
   "scripts": {
-    "test": "node test_v3_full.js",
-    "start": "python3 -m http.server 8000"
+    "start": "node app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
-  "license": "MIT",
+  "license": "ISC",
   "type": "commonjs",
   "dependencies": {
     "circomlibjs": "^0.1.7",
