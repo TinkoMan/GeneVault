@@ -167,9 +167,6 @@ responses, and audit ledger say so explicitly.
    `no_confident_call` / `marker_absent` — the system refuses to fabricate a
    verdict from incomplete genomes (see `DEMO_PROMPTS.md` P6).
 
-Note: this submission ships the compiled artifacts, keys, and Solidity
-verifiers; the circom source of `PgxMembershipV2` is not part of the repo drop.
-
 ## FAQ
 
 **Why can't I just paste my genotype into the chat instead of doing all this?**
