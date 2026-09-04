@@ -26,11 +26,11 @@ const state = {
   copilotOpen: false,
   hudActive: false,
   guideOpen: false,
-  theme: "dark",
+  theme: "light",
   activePatientId: "eleanor-vance",
   rightDockCollapsed: false,
   inspectingTree: null, // dark | light
-  consentPolicy: "ask",
+  consentPolicy: "session",
   consentResolver: null,
   consentAutoTimer: null,
   inExternalCall: false,
@@ -193,41 +193,57 @@ const PATIENT_PROFILES = [
 // ---------------------------------------------------------------------------
 // Right Dock (Inspector Rail) Collapsible Controller
 // ---------------------------------------------------------------------------
-function toggleRightDock() {
+function showRightDock() {
   const rd = document.getElementById("right-dock");
   const sr = document.getElementById("splitter-right");
   const btnIcon = document.getElementById("right-dock-toggle-icon");
+  const btn = document.getElementById("right-dock-toggle-btn");
   if (!rd) return;
-
-  const isHidden = rd.classList.contains("hidden");
-  if (isHidden) {
-    rd.classList.remove("hidden");
-    if (sr) sr.classList.remove("hidden");
-    state.rightDockCollapsed = false;
-    localStorage.setItem("genevault-right-dock-collapsed", "false");
-    if (btnIcon) btnIcon.textContent = "view_sidebar";
-  } else {
-    rd.classList.add("hidden");
-    if (sr) sr.classList.add("hidden");
-    state.rightDockCollapsed = true;
-    localStorage.setItem("genevault-right-dock-collapsed", "true");
-    if (btnIcon) btnIcon.textContent = "dock_to_right";
-  }
+  rd.classList.remove("hidden");
+  if (sr) sr.classList.remove("hidden");
+  state.rightDockCollapsed = false;
+  localStorage.setItem("genevault-right-dock-collapsed", "false");
+  if (btnIcon) btnIcon.textContent = "view_sidebar";
+  if (btn) btn.title = "Collapse ZK & WebMCP Inspector (Right Sidebar)";
   setTimeout(handleViewportResize, 50);
   setTimeout(handleViewportResize, 250);
 }
 
-function initRightDock() {
-  const saved = localStorage.getItem("genevault-right-dock-collapsed");
+function hideRightDock() {
   const rd = document.getElementById("right-dock");
   const sr = document.getElementById("splitter-right");
   const btnIcon = document.getElementById("right-dock-toggle-icon");
+  const btn = document.getElementById("right-dock-toggle-btn");
+  if (!rd) return;
+  rd.classList.add("hidden");
+  if (sr) sr.classList.add("hidden");
+  state.rightDockCollapsed = true;
+  localStorage.setItem("genevault-right-dock-collapsed", "true");
+  if (btnIcon) btnIcon.textContent = "dock_to_right";
+  if (btn) btn.title = "Expand ZK & WebMCP Inspector (Right Sidebar)";
+  setTimeout(handleViewportResize, 50);
+  setTimeout(handleViewportResize, 250);
+}
 
-  if (saved === "true" && rd) {
-    rd.classList.add("hidden");
-    if (sr) sr.classList.add("hidden");
-    state.rightDockCollapsed = true;
-    if (btnIcon) btnIcon.textContent = "dock_to_right";
+function toggleRightDock() {
+  const rd = document.getElementById("right-dock");
+  if (!rd) return;
+  if (rd.classList.contains("hidden")) {
+    showRightDock();
+  } else {
+    hideRightDock();
+  }
+}
+
+function initRightDock() {
+  const saved = localStorage.getItem("genevault-right-dock-collapsed");
+  // Keep right dock collapsed until data is loaded/uploaded
+  if (!state.parsed) {
+    hideRightDock();
+  } else if (saved === "false") {
+    showRightDock();
+  } else {
+    hideRightDock();
   }
 }
 
@@ -1418,7 +1434,7 @@ function closeProteinPipWindow() {
 // ---------------------------------------------------------------------------
 function initTheme() {
   const saved = localStorage.getItem("genevault-theme");
-  state.theme = saved || "dark";
+  state.theme = saved || "light";
   applyTheme(state.theme);
 }
 
@@ -1451,13 +1467,19 @@ function toggleSidebar() {
 
 function initSidebar() {
   const saved = localStorage.getItem("genevault-sidebar-collapsed");
-  if (saved === "true") {
-    const sidebar = document.getElementById("main-sidebar");
+  const shouldCollapse = saved === "false" ? false : true; // Default closed
+  const sidebar = document.getElementById("main-sidebar");
+  const icon = document.getElementById("sidebar-toggle-icon");
+  const btn = document.getElementById("sidebar-toggle-btn");
+
+  if (shouldCollapse) {
     if (sidebar) sidebar.classList.add("collapsed");
-    const icon = document.getElementById("sidebar-toggle-icon");
     if (icon) icon.textContent = "dock_to_left";
-    const btn = document.getElementById("sidebar-toggle-btn");
     if (btn) btn.title = "Expand Sidebar";
+  } else {
+    if (sidebar) sidebar.classList.remove("collapsed");
+    if (icon) icon.textContent = "side_navigation";
+    if (btn) btn.title = "Collapse Sidebar";
   }
 }
 
@@ -1548,7 +1570,7 @@ function initResizableSplitters() {
     document.addEventListener("mousemove", (e) => {
       if (!isDragging) return;
       const containerRect = document.getElementById("workspace-container").getBoundingClientRect();
-      const newWidth = Math.max(250, Math.min(500, containerRect.right - e.clientX));
+      const newWidth = Math.max(280, Math.min(550, containerRect.right - e.clientX));
       rightDock.style.width = newWidth + "px";
       handleViewportResize();
     });
@@ -1577,7 +1599,7 @@ function initResizableSplitters() {
     document.addEventListener("mousemove", (e) => {
       if (!isDragging) return;
       const centerRect = document.getElementById("center-stage").getBoundingClientRect();
-      const newHeight = Math.max(100, Math.min(350, centerRect.bottom - e.clientY));
+      const newHeight = Math.max(100, Math.min(420, centerRect.bottom - e.clientY));
       bottomDock.style.height = newHeight + "px";
       handleViewportResize();
       if (chartInstance) { chartInstance.resize(); }
@@ -1688,6 +1710,26 @@ function toggleJudgeGuideModal() {
     if (state.guideOpen) modal.classList.remove("hidden");
     else modal.classList.add("hidden");
   }
+}
+
+function dismissJudgeGuideModal() {
+  try { localStorage.setItem("genevault_guide_dismissed", "true"); } catch (e) {}
+  state.guideOpen = false;
+  const modal = document.getElementById("judge-guide-modal");
+  if (modal) modal.classList.add("hidden");
+}
+
+function initJudgeGuideModal() {
+  try {
+    const dismissed = localStorage.getItem("genevault_guide_dismissed");
+    if (!dismissed) {
+      setTimeout(() => {
+        state.guideOpen = true;
+        const modal = document.getElementById("judge-guide-modal");
+        if (modal) modal.classList.remove("hidden");
+      }, 400);
+    }
+  } catch (e) {}
 }
 
 function toggleCopilotDrawer() {
@@ -1864,30 +1906,105 @@ function updateWebMcpHudStep(stepNum, stepTitle, statusText, signals = null, res
   const statusIcon = document.getElementById("hud-status-icon");
   const badge = document.getElementById("hud-action-badge");
 
-  if (stepInd) stepInd.textContent = "Step " + stepTitle;
+  const isRejected = (result && (result.status === "REJECTED" || result.status === "denied_by_patient")) ||
+                     (stepTitle && (stepTitle.includes("Unsatisfiable") || stepTitle.includes("Blocked") || stepTitle.includes("Error")));
+
+  const normalizedStep = Math.min(4, Math.max(1, stepNum > 4 ? 4 : stepNum));
+  const cleanTitle = (stepTitle || "").replace(/^(\d+)\s+of\s+\d+:\s*/i, "");
+  if (stepInd) {
+    stepInd.textContent = `Stage ${normalizedStep}/4: ${cleanTitle || 'Executing'}`;
+  }
   if (statusEl) statusEl.textContent = statusText;
 
-  // 4 steps (25%, 50%, 75%, 100%)
-  const pct = Math.min(100, Math.max(25, stepNum * 25));
-  if (progressBar) progressBar.style.width = pct + "%";
-
-  for (let i = 1; i <= 4; i++) {
-    const el = document.getElementById("hud-step-" + i);
-    if (!el) continue;
-    if (i < stepNum) el.className = "text-emerald-600 dark:text-emerald-400 font-semibold";
-    else if (i === stepNum) el.className = "text-blue-600 dark:text-blue-400 font-bold underline";
-    else el.className = "text-slate-400 dark:text-slate-600";
+  const pct = Math.min(100, Math.max(25, normalizedStep * 25));
+  if (progressBar) {
+    progressBar.style.width = pct + "%";
+    progressBar.style.backgroundColor = isRejected ? "#ef4444" : "var(--primary-bg)";
   }
 
-  // Turn spinner into solid green checkmark upon completion
-  if (stepNum >= 4) {
+  for (let i = 1; i <= 4; i++) {
+    const textEl = document.getElementById("hud-step-" + i);
+    const nodeEl = document.getElementById("hud-step-node-" + i);
+    if (!textEl && !nodeEl) continue;
+
+    if (i < normalizedStep) {
+      if (textEl) textEl.className = "text-[9.5px] font-semibold leading-none text-emerald-600 dark:text-emerald-400";
+      if (nodeEl) {
+        nodeEl.innerHTML = '<span class="material-symbols-outlined text-[13px] text-white">check</span>';
+        nodeEl.style.backgroundColor = "#10b981";
+        nodeEl.style.color = "#ffffff";
+        nodeEl.style.borderColor = "#10b981";
+      }
+    } else if (i === normalizedStep) {
+      if (isRejected) {
+        if (textEl) {
+          textEl.textContent = i === 4 ? "4. Rejected" : textEl.textContent;
+          textEl.className = "text-[9.5px] font-bold leading-none text-rose-600 dark:text-rose-400";
+        }
+        if (nodeEl) {
+          nodeEl.innerHTML = '<span class="material-symbols-outlined text-[13px] text-white">close</span>';
+          nodeEl.style.backgroundColor = "#ef4444";
+          nodeEl.style.color = "#ffffff";
+          nodeEl.style.borderColor = "#ef4444";
+        }
+      } else if (normalizedStep === 4) {
+        if (textEl) textEl.className = "text-[9.5px] font-bold leading-none text-emerald-600 dark:text-emerald-400";
+        if (nodeEl) {
+          nodeEl.innerHTML = '<span class="material-symbols-outlined text-[13px] text-white">check</span>';
+          nodeEl.style.backgroundColor = "#10b981";
+          nodeEl.style.color = "#ffffff";
+          nodeEl.style.borderColor = "#10b981";
+        }
+      } else {
+        if (textEl) textEl.className = "text-[9.5px] font-bold leading-none text-blue-600 dark:text-blue-400";
+        if (nodeEl) {
+          nodeEl.innerHTML = `<span class="material-symbols-outlined text-[12px] animate-spin text-white">progress_activity</span>`;
+          nodeEl.style.backgroundColor = "#3b82f6";
+          nodeEl.style.color = "#ffffff";
+          nodeEl.style.borderColor = "#3b82f6";
+        }
+      }
+    } else {
+      if (textEl) textEl.className = "text-[9.5px] font-medium leading-none text-slate-400 dark:text-zinc-600";
+      if (nodeEl) {
+        nodeEl.textContent = i;
+        nodeEl.style.backgroundColor = "var(--bg-surface)";
+        nodeEl.style.color = "var(--text-muted)";
+        nodeEl.style.borderColor = "var(--border-medium)";
+      }
+    }
+  }
+
+  if (isRejected) {
     if (statusIcon) {
-      statusIcon.className = "material-symbols-outlined text-[16px] text-emerald-500";
+      statusIcon.className = "material-symbols-outlined text-[15px] text-rose-500 shrink-0";
+      statusIcon.textContent = "error";
+    }
+    if (badge) {
+      badge.textContent = result && result.status === "denied_by_patient" ? "CONSENT BLOCKED" : "ATTACK BLOCKED";
+      badge.className = "text-[9px] px-1.5 py-0.2 rounded font-mono font-bold bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900";
+    }
+    const expEl = document.getElementById("hud-plain-explanation");
+    if (expEl && result && result.status === "REJECTED") {
+      expEl.innerHTML = "Rogue client attempted to forge a counterfeit Groth16 proof. The R1CS arithmetic circuit evaluated the claim against the Poseidon Merkle root and <b>mathematically rejected the witness</b>.";
+    }
+  } else if (normalizedStep >= 4) {
+    if (statusIcon) {
+      statusIcon.className = "material-symbols-outlined text-[15px] text-emerald-500 shrink-0";
       statusIcon.textContent = "check_circle";
     }
     if (badge) {
       badge.textContent = "VERIFIED";
-      badge.className = "text-[9px] px-1.5 py-0.2 rounded font-mono font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300";
+      badge.className = "text-[9px] px-1.5 py-0.2 rounded font-mono font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800";
+    }
+  } else {
+    if (statusIcon) {
+      statusIcon.className = "material-symbols-outlined text-[15px] text-blue-500 animate-spin shrink-0";
+      statusIcon.textContent = "progress_activity";
+    }
+    if (badge) {
+      badge.textContent = "RUNNING";
+      badge.className = "text-[9px] px-1.5 py-0.2 rounded font-mono font-bold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800";
     }
   }
 
@@ -1904,11 +2021,19 @@ function updateWebMcpHudStep(stepNum, stepTitle, statusText, signals = null, res
   if (result) {
     const insightEl = document.getElementById("hud-insight-details");
     if (insightEl) {
-      insightEl.innerHTML = `
-        <div><b>Clinical Status:</b> <span class="text-emerald-600 dark:text-emerald-400 font-semibold">${result.status || 'Verified'}</span></div>
-        <div><b>Recommendation:</b> ${escapeHtml(result.recommendation || result.interaction || 'CPIC clinical guidelines enforced.')}</div>
-        <div><b>ZK Proof:</b> Cryptographically verified via BN128 curve. Zero genetic data exposed.</div>
-      `;
+      if (result.status === "REJECTED") {
+        insightEl.innerHTML = `
+          <div><b>Security Audit:</b> <span class="text-rose-600 dark:text-rose-400 font-semibold">REJECTED (Attack Blocked)</span></div>
+          <div><b>Circuit Verdict:</b> Constraint unsatisfied — witness generation failed for counterfeit leaf.</div>
+          <div><b>ZK Proof:</b> R1CS rejected falsified claim before any proof could be synthesized.</div>
+        `;
+      } else {
+        insightEl.innerHTML = `
+          <div><b>Clinical Status:</b> <span class="text-emerald-600 dark:text-emerald-400 font-semibold">${result.status || 'Verified'}</span></div>
+          <div><b>Recommendation:</b> ${escapeHtml(result.recommendation || result.interaction || 'CPIC clinical guidelines enforced.')}</div>
+          <div><b>ZK Proof:</b> Cryptographically verified via BN128 curve. Zero genetic data exposed.</div>
+        `;
+      }
     }
   }
 }
@@ -2293,8 +2418,55 @@ async function handleFileText(text, fileName) {
       label.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-medium">Vault Synced:</span> ${fileName} (${foundGenes.length} genes detected)`;
     }
 
+    // -----------------------------------------------------------------------
+    // Patient Profile Metadata Synchronization
+    // -----------------------------------------------------------------------
+    const isDemo = fileName.includes("[DEMO PATIENT]") || fileName.includes("sample_genome_23andme");
+    const lName = document.getElementById("left-dock-patient-name");
+    const ehrBadge = document.getElementById("left-dock-ehr-badge");
+    const lDx = document.getElementById("left-dock-patient-dx");
+    const bc = document.getElementById("breadcrumb-patient-name");
+    const sName = document.getElementById("sidebar-patient-name");
+    const sDocName = document.getElementById("sidebar-doctor-name");
+    const headline = document.getElementById("scenario-headline");
+
+    if (isDemo) {
+      if (lName) lName.textContent = "Eleanor Vance";
+      if (ehrBadge) {
+        ehrBadge.textContent = "EHR SYNCED";
+        ehrBadge.className = "text-[9px] font-mono px-1.5 py-0.2 rounded font-semibold border text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-900";
+      }
+      if (lDx) lDx.innerHTML = `<b>Dx:</b> Post-PCI Stent · <b>Rx:</b> Aspirin 81mg`;
+      if (bc) bc.textContent = `Eleanor Vance (MRN #9042-A)`;
+      if (sName) sName.textContent = `EHR: Eleanor Vance`;
+      if (sDocName) sDocName.textContent = `Dr. Eleanor Vance`;
+    } else {
+      // Derive clean patient name from filename (e.g. "john_doe_genome.txt" -> "John Doe")
+      let cleanBase = fileName.replace(/\.[^/.]+$/, "").replace(/[_.\-]+/g, " ").trim();
+      let patientDisplayName = cleanBase.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+      if (!patientDisplayName || patientDisplayName.toLowerCase() === "genome" || patientDisplayName.toLowerCase() === "dna" || patientDisplayName.length < 3) {
+        patientDisplayName = "Custom Patient";
+      }
+
+      if (lName) lName.textContent = patientDisplayName;
+      if (ehrBadge) {
+        ehrBadge.textContent = "CUSTOM VAULT";
+        ehrBadge.className = "text-[9px] font-mono px-1.5 py-0.2 rounded font-semibold border text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800";
+      }
+      if (lDx) lDx.innerHTML = `<b>Source:</b> ${escapeHtml(fileName)} · <b>Vault:</b> Local Memory`;
+      if (bc) bc.textContent = `${patientDisplayName} (Custom File)`;
+      if (sName) sName.textContent = `Vault: ${patientDisplayName}`;
+      if (sDocName) sDocName.textContent = `Patient: ${patientDisplayName}`;
+      if (headline) {
+        headline.innerHTML = `Loaded custom genomic file <b>${escapeHtml(fileName)}</b>. AI Prescriber ready to verify genetic drug safety in Zero-Knowledge.`;
+      }
+    }
+
     renderPKChart();
     highlightDnaLocus(state.selectedGene || "CYP2C19");
+
+    // Automatically expand the right inspector when data is loaded
+    showRightDock();
   } catch (e) {
     state.parsed = null; state.geneStates = {}; state.claimTrees = {};
     recordAuditLog("Parse error: " + e.message, "PARSER", "FLAGGED");
@@ -2307,7 +2479,7 @@ async function handleFileSelect(file) {
   if (!file) return;
   state.file = file;
   const text = await file.text();
-  await handleFileText(text, file.name);
+  await handleFileText(text, file.name, true);
 }
 
 async function triggerSampleLoad() {
@@ -3379,8 +3551,8 @@ const WEBMCP_TOOLS = [
 // Human-in-the-Loop Consent Gate (patient approves what the agent receives)
 // ---------------------------------------------------------------------------
 function initConsentPolicy() {
-  try { state.consentPolicy = localStorage.getItem("genevault_consent_policy") || "ask"; }
-  catch (e) { state.consentPolicy = "ask"; }
+  try { state.consentPolicy = localStorage.getItem("genevault_consent_policy") || "session"; }
+  catch (e) { state.consentPolicy = "session"; }
   renderConsentPolicyBtn();
 }
 
@@ -3388,7 +3560,7 @@ function renderConsentPolicyBtn() {
   const btn = document.getElementById("consent-policy-btn");
   if (!btn) return;
   if (state.consentPolicy === "session") {
-    btn.textContent = "AUTO-APPROVED";
+    btn.textContent = "APPROVED";
     btn.className = "px-2 py-0.5 rounded text-[9.5px] font-mono font-semibold border bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800";
   } else {
     btn.textContent = "ASK EVERY TIME";
@@ -4240,4 +4412,5 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   loadEngine();
   initConsentPolicy();
+  initJudgeGuideModal();
 });
