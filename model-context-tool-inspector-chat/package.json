@@ -1,0 +1,11 @@
+{
+  "name": "model-context-tool-inspector-chat",
+  "version": "2.0.0",
+  "description": "Interactive AI Chat Agent for WebMCP Tools with Multi-Model & Custom Gateway Support",
+  "type": "module",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "keywords": ["webmcp", "chrome-extension", "ai-agent", "sidepanel"],
+  "license": "Apache-2.0"
+}
