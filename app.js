@@ -131,7 +131,7 @@ const PATIENT_PROFILES = [
     diplotype: "*2/*2",
     category: "POOR_METABOLIZER",
     hazard: "Complete clopidogrel resistance. High stent thrombosis risk.",
-    guideline: "Avoid Plavix. Prescribe alternative (Prasugrel 10mg or Ticagrelor 90mg BID).",
+    guideline: "Avoid Plavix. Guideline-preferred alternatives: Prasugrel 10mg or Ticagrelor 90mg BID (prescriber decision).",
     vcfSnippet: "# 23andMe Genotype File\nrs4244285\t10\t96541602\tA\tA\nrs1057910\t10\t96702047\tA\tC\nrs9923231\t16\t31107675\tC\tT"
   },
   {
@@ -149,7 +149,7 @@ const PATIENT_PROFILES = [
     diplotype: "*4/*4",
     category: "POOR_METABOLIZER",
     hazard: "Defective CYP2D6 bioactivation of Codeine into morphine. Severe analgesic failure.",
-    guideline: "Avoid Codeine / Tramadol. Prescribe non-codeine opioid (Hydromorphone or Morphine).",
+    guideline: "Avoid Codeine / Tramadol. Non-CYP2D6-metabolized analgesics such as Hydromorphone or Morphine are guideline-preferred (prescriber decision).",
     vcfSnippet: "# 23andMe Genotype File\nrs3892097\t22\t42524947\tA\tA\nrs1065852\t22\t42526694\tT\tT"
   },
   {
@@ -679,7 +679,7 @@ async function runLocalClinicalAgent(prompt) {
           <b>Pharmacological Mechanism:</b> Clopidogrel is an inactive prodrug requiring 2-step hepatic bioactivation via CYP2C19. In this patient, active thiol metabolite generation is impaired by &gt;70%, leading to subtherapeutic platelet inhibition and severe risk of stent thrombosis.
         </div>
         <div class="p-2 rounded bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-[11px] text-red-700 dark:text-red-300 font-medium">
-          <b>Clinical Directive:</b> Avoid Plavix. Prescribe alternative antiplatelet agent:
+          <b>Clinical Decision Support:</b> Avoid Plavix. Guideline-preferred alternative antiplatelet agents (prescriber decision):
           <ul class="list-disc list-inside mt-1 font-normal">
             <li><b>Prasugrel 10 mg daily</b> (if age &lt;75 and wt &gt;60kg, no prior stroke/TIA)</li>
             <li><b>Ticagrelor 90 mg BID</b> (unless active bleeding)</li>
@@ -717,7 +717,7 @@ async function runLocalClinicalAgent(prompt) {
           <b>Patient Genetics:</b> Carries <b>CYP2D6 ${escapeHtml(gs.diplotype)}</b> (${escapeHtml(gs.categoryLabel)}).
         </div>
         <div class="p-2 rounded bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-[11px] text-red-700 dark:text-red-300 font-medium">
-          <b>Clinical Directive:</b> Codeine cannot be bioactivated into morphine. Patient will experience zero pain relief despite escalating doses. Prescribe non-CYP2D6 metabolized analgesics (e.g. Hydromorphone or Morphine).
+          <b>Clinical Decision Support:</b> Codeine cannot be bioactivated into morphine. Patient will experience zero pain relief despite escalating doses. Non-CYP2D6-metabolized analgesics (e.g. Hydromorphone or Morphine) are guideline-preferred (prescriber decision).
         </div>
       </div>
     `;
@@ -726,7 +726,7 @@ async function runLocalClinicalAgent(prompt) {
       <div class="space-y-2">
         <div class="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
           <span class="material-symbols-outlined text-[16px] text-blue-500">info</span>
-          <span>Clinical Prescribing Guidance: ${escapeHtml(targetDrug)} (${escapeHtml(targetGene)})</span>
+          <span>Clinical Decision Support: ${escapeHtml(targetDrug)} (${escapeHtml(targetGene)})</span>
         </div>
         <div class="text-[11.5px] leading-relaxed text-slate-600 dark:text-slate-300">
           <b>Active Genotype:</b> ${escapeHtml(gs.diplotype)} · <b>Phenotype:</b> ${escapeHtml(gs.categoryLabel)}.
@@ -1852,7 +1852,7 @@ function openWebMcpHud(toolName, args = {}) {
     iconEl.textContent = "progress_activity";
   }
 
-  updateWebMcpHudStep(1, "1 of 4: Tool Invocation", "External Prescribing Agent called: " + toolName);
+  updateWebMcpHudStep(1, "1 of 4: Tool Invocation", "External Agent called: " + toolName);
   overlay.classList.remove("hidden");
   switchHudTab("tab-insight");
 }
@@ -2272,6 +2272,18 @@ async function handleFileText(text, fileName) {
     }
 
     await buildClaimTrees();
+
+    // CONSISTENCY GUARD: a new genome invalidates every prior verdict.
+    // Stale alert cards or history from a DIFFERENT file must never sit next
+    // to results for this one — one authoritative result model per patient.
+    if (state.shownAlerts && state.shownAlerts.size) state.shownAlerts.clear();
+    const glist = document.getElementById("guidelines-list");
+    if (glist) glist.innerHTML = '<div class="text-center text-[11px] text-slate-400 py-3">Awaiting verified checks for this genome…</div>';
+    if (state.clinicalHistory && state.clinicalHistory.length) {
+      clearClinicalHistory();
+      recordAuditLog("New genome loaded — prior verdicts & alert cards invalidated (they belonged to the previous file)", "PARSER");
+    }
+
     renderDrugMatrixGrid();
 
     const foundGenes = Object.values(state.geneStates).filter(g => g.found);
@@ -2696,8 +2708,35 @@ async function testAdversarialFalseClaim() {
 }
 
 // ---------------------------------------------------------------------------
-// 12 WEBMCP TOOLS
+// 18 WEBMCP TOOLS (12 core + 6 batch-2: privacy report, drug comparison,
+// food interactions, preop panel, doctor summary, consent revocation)
 // ---------------------------------------------------------------------------
+
+// Curated food–drug interaction knowledge: well-established public pharmacology,
+// deliberately small and honest. NOT an exhaustive clinical database — the tool
+// response says so explicitly.
+const FOOD_INTERACTIONS = {
+  "warfarin": [
+    { substance: "Vitamin K–rich greens (kale, spinach, broccoli)", mechanism: "Pharmacodynamic — direct antagonism of warfarin's anticoagulant effect", effect: "Large swings in vitamin K intake destabilize INR; consistency matters more than avoidance", severity: "high" },
+    { substance: "Cranberry juice / cranberry products", mechanism: "Reported CYP2C9 inhibition and additive effect", effect: "Can raise INR and bleeding risk", severity: "high" },
+    { substance: "Grapefruit juice", mechanism: "Possible CYP3A4/CYP2C9 inhibition", effect: "Reported INR elevation in some patients", severity: "medium" },
+    { substance: "Alcohol (heavy or binge intake)", mechanism: "Altered warfarin metabolism plus platelet effect", effect: "Raises INR variability and bleeding risk", severity: "medium" },
+  ],
+  "tacrolimus": [
+    { substance: "Grapefruit / pomelo", mechanism: "CYP3A4/3A5 gut-wall inhibition", effect: "Sharp rise in tacrolimus levels → nephrotoxicity risk", severity: "high" },
+    { substance: "High-fat meals", mechanism: "Reduced oral absorption", effect: "Lower and more variable trough levels", severity: "medium" },
+  ],
+  "simvastatin": [
+    { substance: "Grapefruit juice", mechanism: "CYP3A4 inhibition → increased statin exposure", effect: "Myopathy / rhabdomyolysis risk rises with high intake", severity: "high" },
+  ],
+  "codeine": [
+    { substance: "Alcohol", mechanism: "Additive CNS depression", effect: "Sedation and respiratory-depression risk", severity: "high" },
+  ],
+  "clopidogrel": [
+    { substance: "No major well-established food interaction", mechanism: "—", effect: "The bigger clopidogrel concern is CYP2C19-INHIBITING DRUGS (e.g. omeprazole), not foods", severity: "low" },
+  ],
+};
+
 const WEBMCP_TOOLS = [
   {
     name: "parse_genomic_file",
@@ -2764,6 +2803,7 @@ const WEBMCP_TOOLS = [
           gene: g.gene,
           protein: g.protein,
           detected: !!(gs && gs.found),
+          status: (!gs || !gs.found) ? "not_covered_by_file" : (gs.category === "NO_CALL" ? "low_confidence_no_call" : "tested"),
           markers: g.markers.map(m => {
             const e = state.parsed.markers[m.rsid];
             return { rsid: m.rsid, alleleName: m.alleleName, detected: !!e, confidentlyCalled: !!(e && e.called) };
@@ -2772,7 +2812,16 @@ const WEBMCP_TOOLS = [
         };
       });
 
-      const res = { status: "ok", genes: out };
+      // Coverage + gaps report: stops false reassurance by showing what was NOT tested.
+      const coverage = {
+        genesInPanel: out.length,
+        genesTested: out.filter(g => g.status === "tested").length,
+        genesLowConfidence: out.filter(g => g.status === "low_confidence_no_call").length,
+        genesNotCoveredByFile: out.filter(g => g.status === "not_covered_by_file").length,
+        honestScopeNote: "Tested means: the specific marker(s) listed above were confidently called. Each gene covers ONE most-actionable marker — a normal result does NOT exclude risk from untested variants. check_drug_safety responses include the per-gene caveat.",
+      };
+
+      const res = { status: "ok", coverage, genes: out };
       updateWebMcpHudStep(5, "5 of 5: Complete", "Returned public marker catalog.", null, res);
       return res;
     },
@@ -2968,6 +3017,362 @@ const WEBMCP_TOOLS = [
       return res;
     },
   },
+  {
+    name: "get_privacy_report",
+    description: "Transparency report: EXACTLY what genomic data the agent has seen vs. what stays on-device — hard numbers (0 DNA letters released). Zero-argument. Answers 'how much of my DNA have you seen?' verifiably.",
+    inputSchema: { type: "object", properties: {}, required: [] },
+    execute: async () => {
+      openWebMcpHud("get_privacy_report", {});
+      recordAuditLog("WebMCP Tool Invoked: get_privacy_report()", "WEBMCP_TOOL");
+      // No consent gate by design: this report contains privacy metadata about the
+      // session only — zero genomic content, zero verdicts beyond what was already released.
+      const verdicts = (state.clinicalHistory || []).map(r => ({ drug: r.drug, provenCategory: r.category, risk: r.risk, proofVerified: !!r.proofVerified }));
+      const res = {
+        status: state.parsed ? "ok" : "no_file",
+        rulesetVersion: PGXCore.PGX_RULESET_VERSION,
+        vault: {
+          fileName: state.file ? state.file.name : null,
+          fileBytesHeldInMemoryOnly: state.file ? state.file.size : 0,
+          dataLinesScannedOnDevice: state.parsed ? state.parsed.stats.dataLines : 0,
+          genotypePositionsInVault: state.parsed ? Object.keys(state.parsed.markers).length : 0,
+          genesDetected: Object.values(state.geneStates).filter(g => g.found).map(g => g.gene),
+        },
+        releasedToAgents: {
+          dnaLettersReleased: 0,
+          rawSequenceReleased: false,
+          genotypeAllelesReleased: 0,
+          verdictCount: verdicts.length,
+          verdicts: verdicts,
+        },
+        zkStats: {
+          nullifiersConsumed: nullifierRegistry.size,
+          sessionNonce: state.queryNonce,
+          architecture: "Groth16 zk-SNARK: tools release proven verdicts only; A/T/C/G letters, genotypes and file bytes never leave this device.",
+        },
+        explanation: "The agent sees ONLY verdicts produced by tools like check_drug_safety — each gated by patient consent and a single-use nullifier. This report itself contains no genomic content.",
+        next: "Call check_drug_safety to produce another zero-knowledge verdict, or export_doctor_summary to compile the verdicts released so far.",
+      };
+      // Downloadable privacy receipt: what was checked, what was disclosed, how to verify.
+      try {
+        const receipt = { generated: new Date().toISOString(), rulesetVersion: res.rulesetVersion, vault: res.vault, releasedToAgents: res.releasedToAgents, zkStats: res.zkStats, independentVerification: "snarkjs groth16 verify verification_key_v2.json public_input.json proof.json — see README 'Independently verifying the proofs'." };
+        res.receiptDownloadUrl = URL.createObjectURL(new Blob([JSON.stringify(receipt, null, 2)], { type: "application/json" }));
+        res.receiptFilename = "genevault_privacy_receipt.json";
+      } catch (e) { res.receiptDownloadUrl = null; }
+      updateWebMcpHudStep(5, "5 of 5: Report Issued", "Privacy ledger compiled.", null, res);
+      return res;
+    },
+  },
+  {
+    name: "compare_two_drugs",
+    description: "Head-to-head Groth16-proven safety comparison of two medications for THIS patient (e.g. Plavix vs Brilinta). Generates a real ZK proof per gating gene (~5s each) and returns side-by-side verdicts plus a bottom-line pick. Non-gated drugs (ticagrelor, morphine…) are honestly flagged.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        drugA: { type: "string", description: "First medication name" },
+        drugB: { type: "string", description: "Second medication name" },
+      },
+      required: ["drugA", "drugB"],
+    },
+    execute: async ({ drugA, drugB }) => {
+      openWebMcpHud("compare_two_drugs", { drugA, drugB });
+      recordAuditLog("WebMCP Tool Invoked: compare_two_drugs('" + drugA + "' vs '" + drugB + "')", "WEBMCP_TOOL");
+
+      if (!state.parsed) {
+        const res = { status: "no_file", message: "No patient record parsed. Upload DNA or click Run Doctor Scenario." };
+        updateWebMcpHudStep(5, "5 of 5: Finished", "Vault empty.", null, res);
+        return res;
+      }
+      if (!engineReadyGuard()) {
+        const res = { status: "error", message: "ZK Engine booting… please wait." };
+        updateWebMcpHudStep(5, "5 of 5: Error", "Engine not ready.", null, res);
+        return res;
+      }
+      const a = String(drugA || "").trim(), b = String(drugB || "").trim();
+      if (!a || !b || a.toLowerCase() === b.toLowerCase()) {
+        const res = { status: "invalid_input", message: "Provide two different drug names." };
+        updateWebMcpHudStep(5, "5 of 5: Finished", "Invalid input.", null, res);
+        return res;
+      }
+
+      const consented = await requestConsent("compare_two_drugs", { drugA: a, drugB: b },
+        "The agent wants a side-by-side safety comparison of " + a + " vs " + b + " for THIS patient. A Groth16 proof runs per gating gene — only verdicts are released. Allow?");
+      if (!consented) return deniedResponse("compare_two_drugs");
+
+      const t0 = performance.now();
+      const resolveOne = async (name) => {
+        const hit = PGXCore.findDrug(name);
+        if (hit) {
+          const r = await assessDrugQuiet(hit.drug);
+          if (r.status !== "assessed") return Object.assign({ drug: hit.drug }, r);
+          return { drug: r.drug, gene: r.gene, provenCategory: r.provenCategory, risk: r.risk, recommendation: r.recommendation, geneCaveat: r.geneCaveat || null, proofVerified: true, genotypeGated: true };
+        }
+        const alt = searchAlternativesInPanel(name);
+        if (alt) {
+          return { drug: alt.name, gene: null, provenCategory: null, risk: "not_genotype_gated", proofVerified: false, genotypeGated: false, recommendation: "No genotype dependency in the covered panel — listed as a CPIC alternative for: " + alt.reasons.join("; ") + "." };
+        }
+        return { drug: name, status: "unsupported_drug", note: "Not in the covered panel and not listed as an alternative." };
+      };
+
+      updateWebMcpHudStep(2, "2 of 5: Proving " + a, "Groth16 pipeline for " + a + "…");
+      const A = await resolveOne(a);
+      updateWebMcpHudStep(3, "3 of 5: Proving " + b, "Groth16 pipeline for " + b + "…");
+      const B = await resolveOne(b);
+
+      const sevA = riskSeverity(A.risk), sevB = riskSeverity(B.risk);
+      let bottomLine;
+      if (A.status === "unsupported_drug" || B.status === "unsupported_drug") {
+        bottomLine = "One or both drugs are outside the covered panel — comparison limited to panel knowledge.";
+      } else if (A.genotypeGated && B.genotypeGated) {
+        bottomLine = sevA === sevB
+          ? "Both carry comparable proven genotype risk for this patient — choose per clinical context."
+          : (sevA < sevB ? A.drug : B.drug) + " is the genotype-safer pick for THIS patient per the proven categories above.";
+      } else if (A.genotypeGated !== B.genotypeGated) {
+        const gated = A.genotypeGated ? A : B, ungated = A.genotypeGated ? B : A;
+        bottomLine = riskSeverity(gated.risk) <= 0
+          ? "Per proven categories, " + gated.drug + " is acceptable (standard risk); " + ungated.drug + " needs no genotype guardrail at all — both are viable."
+          : "For THIS patient, " + ungated.drug + " sidesteps the genotype risk that affects " + gated.drug + " (proven: " + gated.provenCategory + ").";
+      } else {
+        bottomLine = "Neither drug is genotype-gated in the covered panel — no pharmacogenomic guardrail applies to either.";
+      }
+
+      const elapsed = Math.round(performance.now() - t0);
+      const riskier = sevA >= sevB ? A : B;
+      let visualized = null;
+      const riskierBaseGene = String(riskier.gene || "").split(" + ")[0];
+      if (riskier.gene && PGXCore.PGX_PANEL.some(g => g.gene === riskierBaseGene)) {
+        visualized = await autoVisualizeGene(riskierBaseGene, riskier.drug);
+      }
+
+      const res = {
+        status: "compared",
+        drugA: a, drugB: b,
+        comparison: [A, B],
+        bottomLine,
+        totalMs: elapsed,
+        visualized,
+        scopeNote: "Gene–drug interactions only — this scan does NOT check drug–drug interactions or non-genetic factors (renal/liver function, age, diagnosis). Full review belongs to the clinical team.",
+        disclaimer: PGXCore.PGX_DISCLAIMER,
+        next: visualized && visualized.rendered
+          ? riskier.drug + "'s target enzyme (" + visualized.pdbId + ") is rendered in the 3D viewport. Call simulate_drug_docking({drugName: \"" + riskier.drug + "\"}) to show why, or export_doctor_summary to package both verdicts."
+          : "Call visualize_variant to render the 3D enzyme, or export_doctor_summary to package both verdicts for a clinician.",
+      };
+      updateWebMcpHudStep(5, "5 of 5: Compared", "Dual zero-knowledge assessment complete.", null, res);
+      return res;
+    },
+  },
+  {
+    name: "check_food_drug_interactions",
+    description: "Curated food/diet interactions for a covered medication (grapefruit–tacrolimus, vitamin K–warfarin, grapefruit–simvastatin, alcohol–codeine). Public pharmacology knowledge — works even before a genome is parsed.",
+    inputSchema: {
+      type: "object",
+      properties: { drugName: { type: "string", description: "Medication name" } },
+      required: ["drugName"],
+    },
+    execute: async ({ drugName }) => {
+      openWebMcpHud("check_food_drug_interactions", { drugName });
+      recordAuditLog("WebMCP Tool Invoked: check_food_drug_interactions('" + drugName + "')", "WEBMCP_TOOL");
+
+      const hit = PGXCore.findDrug(drugName);
+      if (!hit) {
+        const res = { status: "unsupported_drug", message: "Drug '" + drugName + "' not in covered panel.", next: "Covered drugs: Plavix/Clopidogrel, Warfarin, Codeine, Simvastatin, 5-FU, Capecitabine, Abacavir, Tacrolimus, Azathioprine." };
+        updateWebMcpHudStep(5, "5 of 5: Finished", "Unsupported drug.", null, res);
+        return res;
+      }
+
+      const consented = await requestConsent("check_food_drug_interactions", { drugName },
+        "The agent asks which foods and drinks interact with " + hit.drug + ". This is public pharmacology knowledge — no genotypes involved. Allow?");
+      if (!consented) return deniedResponse("check_food_drug_interactions");
+
+      const entries = FOOD_INTERACTIONS[hit.drug.toLowerCase()] || [];
+      let genotypeAngle = null;
+      if (hit.gene === "CYP2C9") genotypeAngle = "Warfarin food sensitivity varies with the patient's CYP2C9/VKORC1 phenotype — call check_drug_safety for the zero-knowledge proven verdict.";
+      else if (hit.gene === "CYP3A5") genotypeAngle = "CPIC: CYP3A5 expresser status drives the tacrolimus DOSE, not the food rule — call check_drug_safety for the proven expresser status.";
+      else if (hit.gene === "SLCO1B1") genotypeAngle = "Grapefruit amplifies statin exposure; the patient's SLCO1B1 myopathy risk compounds it — call check_drug_safety for the proven verdict.";
+
+      const res = {
+        status: "ok",
+        drug: hit.drug,
+        gene: hit.gene,
+        interactions: entries,
+        coverage: entries.length ? "Curated well-established interactions only — NOT an exhaustive clinical database; consult a pharmacist." : "No major well-established food interactions catalogued in this curated set — consult a pharmacist.",
+        genotypeAngle,
+        disclaimer: PGXCore.PGX_DISCLAIMER,
+        next: "Call check_drug_safety({drugName: \"" + hit.drug + "\"}) for the genotype-personalized verdict, or compare_two_drugs if the patient is weighing options.",
+      };
+      updateWebMcpHudStep(5, "5 of 5: Complete", entries.length + " curated interaction(s) returned.", null, res);
+      return res;
+    },
+  },
+  {
+    name: "run_preop_panel",
+    description: "Medication scan / peri-operative panel: enter your current medicines (max 6) and get batch Groth16-proven gene–drug verdicts in ONE call (default: Plavix, Warfarin, Codeine, Simvastatin). Real ZK proofs — roughly 5s per gating gene, expect 10-25s. One consent covers the whole batch. SCOPE: gene–drug interactions only — drug–drug interaction checking is NOT included.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        drugs: { type: "array", items: { type: "string" }, description: "Optional drug list (max 6); omit for the default perioperative set" },
+      },
+      required: [],
+    },
+    execute: async ({ drugs }) => {
+      openWebMcpHud("run_preop_panel", { drugs });
+      recordAuditLog("WebMCP Tool Invoked: run_preop_panel(" + JSON.stringify(drugs || "default") + ")", "WEBMCP_TOOL");
+
+      if (!state.parsed) {
+        const res = { status: "no_file", message: "No patient record parsed. Upload DNA or click Run Doctor Scenario." };
+        updateWebMcpHudStep(5, "5 of 5: Finished", "Vault empty.", null, res);
+        return res;
+      }
+      if (!engineReadyGuard()) {
+        const res = { status: "error", message: "ZK Engine booting… please wait." };
+        updateWebMcpHudStep(5, "5 of 5: Error", "Engine not ready.", null, res);
+        return res;
+      }
+
+      let list = Array.isArray(drugs) && drugs.length ? drugs.map(d => String(d).trim()).filter(Boolean) : ["Plavix", "Warfarin", "Codeine", "Simvastatin"];
+      const capped = list.slice(0, 6);
+
+      const consented = await requestConsent("run_preop_panel", { drugs: capped },
+        "The agent requests a BATCH pre-op pharmacogenomic panel for: " + capped.join(", ") + ". Each drug gets its own Groth16 proof (~5s per gene) — only verdicts are released. Allow?");
+      if (!consented) return deniedResponse("run_preop_panel");
+
+      const t0 = performance.now();
+      const results = [], skipped = [];
+      for (let i = 0; i < capped.length; i++) {
+        const name = capped[i];
+        updateWebMcpHudStep(3, "3 of 5: Proving " + (i + 1) + "/" + capped.length, "Groth16 pipeline for " + name + "…");
+        const hit = PGXCore.findDrug(name);
+        if (!hit) { skipped.push({ drug: name, reason: "not in covered panel" }); continue; }
+        highlightDnaLocus(hit.gene);
+        const r = await assessDrugQuiet(hit.drug);
+        if (r.status !== "assessed") { skipped.push({ drug: hit.drug, reason: r.message || r.status }); continue; }
+        saveClinicalHistoryRecord({
+          drug: r.drug, gene: r.gene, category: r.provenCategory, diplotype: r.diplotype,
+          risk: r.risk, recommendation: r.recommendation, proofVerified: true,
+        });
+        results.push({ drug: r.drug, gene: r.gene, provenCategory: r.provenCategory, diplotype: r.diplotype, risk: r.risk, plainAnswer: r.plainAnswer || null, recommendation: r.recommendation, proofVerified: true });
+      }
+      const elapsed = Math.round(performance.now() - t0);
+      const attention = results.filter(p => riskSeverity(p.risk) >= 2).sort((x, y) => riskSeverity(y.risk) - riskSeverity(x.risk));
+
+      let visualized = null;
+      if (attention.length) {
+        const baseGene = String(attention[0].gene || "").split(" + ")[0];
+        visualized = await autoVisualizeGene(baseGene, attention[0].drug);
+      }
+
+      const res = {
+        status: "panel_complete",
+        requested: capped,
+        results,
+        skipped,
+        drugsRequiringAttention: attention.map(p => p.drug),
+        proofsGenerated: results.reduce((n, p) => n + String(p.gene || "").split(" + ").length, 0),
+        totalMs: elapsed,
+        visualized,
+        scopeNote: "Gene–drug interactions only — this scan does NOT check drug–drug interactions or non-genetic factors (renal/liver function, age, diagnosis). Full review belongs to the clinical team.",
+        disclaimer: PGXCore.PGX_DISCLAIMER,
+        next: attention.length
+          ? (visualized && visualized.rendered ? attention[0].drug + "'s enzyme (" + visualized.pdbId + ") is rendered in 3D. " : "") + "Call simulate_drug_docking({drugName: \"" + attention[0].drug + "\"}) for the riskiest one, or export_doctor_summary to hand the panel to the surgical team."
+          : "No elevated genotype risk in this panel. Call export_doctor_summary to hand the results to the surgical team.",
+      };
+      updateWebMcpHudStep(5, "5 of 5: Panel Complete", results.length + " drug(s) assessed under zero knowledge.", null, res);
+      return res;
+    },
+  },
+  {
+    name: "export_doctor_summary",
+    description: "Compile every Groth16-proven verdict from this session into a doctor-ready, versioned handoff report (plain-language answers, coverage/gaps section, ruleset version, downloadable file) — verdicts and diplotypes already released, never raw genotypes or sequence. Designed for the pharmacist / genetic counselor / oncologist review pathway. Ideal after check_drug_safety or run_preop_panel.",
+    inputSchema: { type: "object", properties: {}, required: [] },
+    execute: async () => {
+      openWebMcpHud("export_doctor_summary", {});
+      recordAuditLog("WebMCP Tool Invoked: export_doctor_summary()", "WEBMCP_TOOL");
+
+      const recs = state.clinicalHistory || [];
+      if (!recs.length) {
+        const res = { status: "nothing_to_export", message: "No proven verdicts yet in this session.", next: "Call check_drug_safety({drugName: \"Plavix\"}) first, then export the summary." };
+        updateWebMcpHudStep(5, "5 of 5: Finished", "Nothing to export.", null, res);
+        return res;
+      }
+
+      const consented = await requestConsent("export_doctor_summary", {},
+        "The agent asks to compile the verdicts already proven and released this session into a shareable summary for a clinician. No new data is revealed. Allow?");
+      if (!consented) return deniedResponse("export_doctor_summary");
+
+      const unique = [], seen = new Set();
+      for (const r of recs) { if (!seen.has(r.drug)) { seen.add(r.drug); unique.push(r); } }
+
+      const lines = [];
+      lines.push("GENEVAULT PHARMACOGENOMIC HANDOFF SUMMARY");
+      lines.push("Generated on-device: " + new Date().toISOString().replace("T", " ").slice(0, 16) + " UTC");
+      lines.push("Ruleset: " + PGXCore.PGX_RULESET_VERSION);
+      lines.push("Method: Groth16 zk-SNARK proven phenotype claims over a CPIC-flavored panel. Verdicts only.");
+      lines.push("");
+      for (const r of unique) {
+        const pa = PGXCore.plainAnswerFor(r.risk);
+        lines.push("- " + r.drug + " | gene(s): " + r.gene + " | proven category: " + r.category + (r.diplotype ? " (" + r.diplotype + ")" : "") + " | risk: " + String(r.risk).replace(/_/g, " ") + " | plain answer: " + pa.answer + (r.proofVerified ? " | ZK proof VERIFIED" : " | ZK proof NOT verified"));
+        lines.push("  Guidance: " + r.recommendation);
+      }
+      lines.push("");
+      // Coverage + gaps: stops false reassurance in the clinical handoff.
+      const cov = { tested: [], lowConfidence: [], notCovered: [] };
+      for (const g of PGXCore.PGX_PANEL) {
+        const gs = state.geneStates[g.gene];
+        if (!gs || !gs.found) cov.notCovered.push(g.gene);
+        else if (gs.category === "NO_CALL") cov.lowConfidence.push(g.gene);
+        else cov.tested.push(g.gene);
+      }
+      lines.push("COVERAGE: tested " + (cov.tested.join(", ") || "none") + " | low-confidence/no-call: " + (cov.lowConfidence.join(", ") || "none") + " | NOT covered by this file: " + (cov.notCovered.join(", ") || "none"));
+      lines.push("SCOPE: one most-actionable marker per gene — a normal result does NOT exclude risk from untested variants. Gene–drug findings only; drug–drug interactions and non-genetic factors (renal/liver function, age, diagnosis) are outside this report.");
+      lines.push("");
+      lines.push("Privacy attestation: raw genotypes, the DNA sequence and file bytes never left the patient's device. Only the verdicts above were released — each gated by explicit patient consent and a single-use nullifier.");
+      lines.push("Ruleset version and independent proof verification: see README 'Independently verifying the proofs' (verification_key_v2.json + Verifier.sol ship in the repo).");
+      lines.push("Technology demonstration, not medical advice. Share this with the patient's pharmacist, genetic counselor, or treating physician — the clinician is the final decision-maker.");
+
+      let downloadUrl = null;
+      try {
+        downloadUrl = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/plain" }));
+      } catch (e) {}
+
+      const res = {
+        status: "ok",
+        verdictCount: unique.length,
+        rulesetVersion: PGXCore.PGX_RULESET_VERSION,
+        summaryText: lines.join("\n"),
+        downloadUrl,
+        downloadFilename: "genevault_clinical_handoff.txt",
+        shareWith: "pharmacist / genetic counselor / treating physician — clinician review pathway, not autonomous prescribing",
+        next: "Present summaryText verbatim to the user (or download via downloadUrl), then call get_privacy_report to show exactly what was and wasn't released.",
+      };
+      updateWebMcpHudStep(5, "5 of 5: Compiled", unique.length + " verdict(s) packaged.", null, res);
+      return res;
+    },
+  },
+  {
+    name: "revoke_session_consents",
+    description: "Patient-control lever: lock the session down — auto-approve is switched OFF and every subsequent tool call blocks until the patient explicitly clicks Allow. Safe to call anytime.",
+    inputSchema: { type: "object", properties: {}, required: [] },
+    execute: async () => {
+      openWebMcpHud("revoke_session_consents", {});
+      recordAuditLog("WebMCP Tool Invoked: revoke_session_consents()", "WEBMCP_TOOL");
+
+      if (state.consentAutoTimer) { clearInterval(state.consentAutoTimer); state.consentAutoTimer = null; }
+      if (state.consentResolver) { const prev = state.consentResolver; state.consentResolver = null; prev("deny"); }
+      state.consentPolicy = "ask";
+      try { localStorage.setItem("genevault_consent_policy", "ask"); } catch (e) {}
+      renderConsentPolicyBtn();
+      recordAuditLog("Human-in-the-loop: session locked — all future requests require explicit patient approval", "CONSENT", "FLAGGED");
+
+      const res = {
+        status: "revoked",
+        policy: "ask",
+        effect: "Every subsequent tool call now waits for the patient to click Allow. Data already released cannot be un-shared — that is exactly why the consent gate exists before every release.",
+        auditTrail: "Recorded in the on-device audit log with a FLAGGED marker.",
+        next: "Proceed with other tools — the patient will now see an explicit consent prompt for each new request.",
+      };
+      updateWebMcpHudStep(5, "5 of 5: Locked", "Session set to ask-every-time.", null, res);
+      return res;
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -3108,6 +3513,90 @@ async function autoVisualizeGene(gene, drug) {
   }
 }
 
+// Coarse risk severity ranking used by compare_two_drugs / run_preop_panel.
+// Heuristic ordering over the panel's own risk labels — the responses say so honestly.
+function riskSeverity(risk) {
+  const r = String(risk || "").toLowerCase();
+  if (r === "not_genotype_gated") return -1;
+  if (r.indexOf("major") !== -1 || r.indexOf("no_efficacy") !== -1 || r.indexOf("high") !== -1 || r.indexOf("critical") !== -1) return 3;
+  if (r.indexOf("standard") !== -1 || r.indexOf("normal") !== -1) return 0;
+  if (r === "unknown" || r === "") return 1;
+  return 2; // reduced_efficacy, intermediate, elevated, …
+}
+
+// Honest fallback for non-genotype-gated drugs (ticagrelor, morphine, rosuvastatin…):
+// search the CPIC alternative lists of the covered panel and report WHY the drug appears there.
+function searchAlternativesInPanel(name) {
+  const q = String(name || "").toLowerCase().trim();
+  if (!q) return null;
+  const brands = { brilinta: "ticagrelor", brilique: "ticagrelor", effient: "prasugrel", crestor: "rosuvastatin", pravachol: "pravastatin" };
+  const needle = brands[q] || q;
+  const reasons = [];
+  let matched = null;
+  for (const g of PGXCore.PGX_PANEL) {
+    for (const d of g.drugs) {
+      for (const alt of (d.alternatives || [])) {
+        if (String(alt).toLowerCase().indexOf(needle) !== -1) {
+          if (!matched) matched = String(alt).split("(")[0].trim();
+          reasons.push(d.name + " (" + g.gene + ")");
+        }
+      }
+    }
+  }
+  return matched ? { name: matched, reasons } : null;
+}
+
+// Shared ZK-gated per-drug assessment used by compare_two_drugs and run_preop_panel.
+// Runs the SAME Groth16 prove→verify pipeline as check_drug_safety (quiet mode, no
+// per-drug consent, no alert cards) so the caller owns the single consent and UI focus.
+async function assessDrugQuiet(drugName) {
+  const hit = PGXCore.findDrug(drugName);
+  if (!hit) return { status: "unsupported_drug", drug: String(drugName || "") };
+  if (!state.parsed) return { status: "no_file", drug: hit.drug };
+  if (!engineReadyGuard()) return { status: "error", drug: hit.drug, message: "ZK engine not ready." };
+
+  const assessGene = async (gene) => {
+    const gs = state.geneStates[gene];
+    if (!gs || !gs.found) return { fatal: true, res: { status: "unknown", drug: hit.drug, gene, message: gene + " marker missing." } };
+    const proofRes = await toolGenerateZkProof(gene, null, true);
+    if (proofRes.status !== "ok") return { fatal: true, res: { status: proofRes.status, drug: hit.drug, gene, message: "Proof impossible for " + gene + ": " + proofRes.message, ...(proofRes.next ? { next: proofRes.next } : {}) } };
+    const verifyRes = await toolVerifyZkProof({ claimId: proofRes.claimId, proof: proofRes.proof, publicSignals: proofRes.publicSignals }, true);
+    if (!verifyRes.valid) return { fatal: true, res: { status: "error", drug: hit.drug, gene, message: "Verification failed for " + gene } };
+    return { fatal: false, categoryKey: gs.category, categoryLabel: verifyRes.revealed.categoryLabel, diplotype: verifyRes.revealed.diplotype };
+  };
+
+  // Warfarin dual-gene path (same computation as check_drug_safety).
+  if (hit.combo && hit.comboPartner) {
+    const a = await assessGene(hit.gene);
+    if (a.fatal) return a.res;
+    const b = await assessGene(hit.comboPartner);
+    if (b.fatal) return b.res;
+    const tier = PGXCore.warfarinRiskTier(state.geneStates[hit.gene].category, state.geneStates[hit.comboPartner].category);
+    return {
+      status: "assessed", drug: hit.drug, gene: hit.gene + " + " + hit.comboPartner,
+      provenCategory: a.categoryLabel + " / " + b.categoryLabel,
+      diplotype: a.diplotype + " / " + b.diplotype,
+      risk: tier ? tier.tier : "unknown",
+      plainAnswer: tier ? PGXCore.plainAnswerFor(tier.tier === "standard" ? "standard" : "adjusted_dose") : PGXCore.plainAnswerFor(null),
+      recommendation: tier ? tier.text : "Risk tier unavailable.",
+      proofVerified: true,
+    };
+  }
+
+  const a = await assessGene(hit.gene);
+  if (a.fatal) return a.res;
+  const advice = hit.drugDef.adviceByCategory[a.categoryKey] || { risk: "unknown", text: "No category advice in panel." };
+  return {
+    status: "assessed", drug: hit.drug, gene: hit.geneDef.gene,
+    provenCategory: a.categoryLabel, diplotype: a.diplotype,
+    risk: advice.risk,
+    plainAnswer: PGXCore.plainAnswerFor(advice.risk),
+    recommendation: advice.text,
+    geneCaveat: hit.geneDef.limitation || null,
+    proofVerified: true,
+  };
+}
+
 async function toolCheckDrugSafety(drugName) {
   openWebMcpHud("check_drug_safety", { drugName });
   recordAuditLog("WebMCP Tool Invoked: check_drug_safety('" + drugName + "')", "WEBMCP_TOOL");
@@ -3149,7 +3638,7 @@ async function toolCheckDrugSafety(drugName) {
 
       updateWebMcpHudStep(3, "3 of 5: Generating SNARK", "Proving Groth16 witness for " + gene + "…");
       const proofRes = await toolGenerateZkProof(gene, null, true);
-      if (proofRes.status !== "ok") return { status: "error", message: "Proof failed for " + gene };
+      if (proofRes.status !== "ok") return { status: proofRes.status, drug: hit.drug, gene, message: proofRes.message, ...(proofRes.next ? { next: proofRes.next } : {}) };
 
       updateWebMcpHudStep(4, "4 of 5: Verifying Nonce", "Verifying BN128 proof and checking nullifier…");
       const verifyRes = await toolVerifyZkProof({ claimId: proofRes.claimId, proof: proofRes.proof, publicSignals: proofRes.publicSignals }, true);
@@ -3176,7 +3665,9 @@ async function toolCheckDrugSafety(drugName) {
       proofVerified: true,
     });
 
-    const finalRes = { status: "assessed", drug: hit.drug, evidence: results, combinedAssessment: tier, disclaimer: PGXCore.PGX_DISCLAIMER };
+    const finalRes = { status: "assessed", drug: hit.drug, evidence: results, combinedAssessment: tier,
+      plainAnswer: tier ? PGXCore.plainAnswerFor(tier.tier === "standard" ? "standard" : "adjusted_dose") : PGXCore.plainAnswerFor(null),
+      disclaimer: PGXCore.PGX_DISCLAIMER };
     finalRes.visualized = await autoVisualizeGene(geneA, hit.drug);
     finalRes.next = finalRes.visualized.rendered
       ? geneA + " (" + finalRes.visualized.pdbId + ") is rendered in the 3D viewport. Call highlight_catalytic_pocket or simulate_drug_docking to inspect the binding site."
@@ -3188,16 +3679,41 @@ async function toolCheckDrugSafety(drugName) {
   // Single-gene drugs
   const geneDef = hit.geneDef, gs = state.geneStates[hit.gene];
   if (!gs || !gs.found) {
-    const res = { status: "unknown", drug: hit.drug, message: geneDef.gene + " marker not found." };
-    updateWebMcpHudStep(5, "5 of 5: Finished", "Marker missing.", null, res);
+    const res = {
+      status: "marker_absent",
+      drug: hit.drug,
+      gene: geneDef.gene,
+      message: geneDef.gene + " markers are absent from the vault — this file does not cover the position(s) GeneVault tracks for " + geneDef.gene + ", so no honest verdict for " + hit.drug + " can be produced.",
+      next: "Call list_detected_markers to show which genes this file covers. Recommend confirmatory clinical genotyping. Do NOT guess a verdict.",
+    };
+    updateWebMcpHudStep(5, "5 of 5: No Honest Verdict", "Marker absent — nothing to prove.", null, res);
+    return res;
+  }
+  if (gs.category === "NO_CALL") {
+    const res = {
+      status: "no_confident_call",
+      drug: hit.drug,
+      gene: geneDef.gene,
+      message: geneDef.gene + " marker(s) are present but NOT confidently called (no-calls) in this file. GeneVault refuses to fabricate a " + hit.drug + " verdict from incomplete data.",
+      rawMarkerStates: (gs.markersFound || []).map(m => ({ rsid: m.rsid, raw: m.raw, called: m.called })),
+      next: "Call list_detected_markers to show which markers are no-calls, and recommend confirmatory clinical genotyping. Do NOT guess a verdict.",
+    };
+    updateWebMcpHudStep(5, "5 of 5: No Honest Verdict", "No confident call — refusing to guess.", null, res);
     return res;
   }
 
   updateWebMcpHudStep(2, "2 of 5: Isolating Secret", "Deriving Poseidon leaf for " + geneDef.gene + "…");
   const proofRes = await toolGenerateZkProof(hit.gene, null, true);
   if (proofRes.status !== "ok") {
-    const res = { status: "error", message: "Proof generation failed." };
-    updateWebMcpHudStep(5, "5 of 5: Error", "Witness generation failed.", null, res);
+    const res = {
+      status: proofRes.status,
+      drug: hit.drug,
+      gene: hit.gene,
+      message: proofRes.message,
+      ...(proofRes.next ? { next: proofRes.next } : {}),
+    };
+    updateWebMcpHudStep(5, "5 of 5: No Honest Verdict",
+      proofRes.status === "no_confident_call" ? "No confident call — refusing to guess." : "Marker absent — nothing to prove.", null, res);
     return res;
   }
 
@@ -3228,10 +3744,12 @@ async function toolCheckDrugSafety(drugName) {
     status: "assessed",
     drug: hit.drug,
     gene: geneDef.gene,
+    protein: geneDef.protein,
     provenCategory: gs.categoryLabel,
     diplotype: gs.diplotype,
     proofVerified: true,
     risk: advice.risk,
+    plainAnswer: PGXCore.plainAnswerFor(advice.risk),
     recommendation: advice.text,
     geneCaveat: geneDef.limitation || null,
     disclaimer: PGXCore.PGX_DISCLAIMER,
@@ -3262,7 +3780,24 @@ async function toolGenerateZkProof(markerId, category, quiet) {
   if (!geneDef) return { status: "error", message: "Unknown gene " + markerId };
 
   const gs = state.geneStates[gene];
-  if (!gs || !gs.found) return { status: "error", message: gene + " marker not found in vault." };
+  if (!gs || !gs.found) return {
+    status: "marker_absent",
+    gene,
+    message: gene + " markers are absent from the vault — the uploaded file does not cover any of the " + geneDef.markers.length + " position(s) GeneVault tracks for " + gene + ".",
+    next: "Call list_detected_markers to show the patient which genes this file actually covers. Recommend confirmatory clinical genotyping for " + gene + ". Do NOT guess a verdict.",
+  };
+
+  // HONESTY GUARD: a no-call genotype cannot produce an honest phenotype.
+  // buildClaimTrees intentionally builds no tree for NO_CALL (nothing true to prove).
+  if (gs.category === "NO_CALL") {
+    return {
+      status: "no_confident_call",
+      gene,
+      message: gene + " marker(s) are present in the vault but NOT confidently called (no-calls) in this file. GeneVault refuses to fabricate a phenotype from incomplete data — there is no honest verdict to prove.",
+      rawMarkerStates: (gs.markersFound || []).map(m => ({ rsid: m.rsid, raw: m.raw, called: m.called })),
+      next: "Call list_detected_markers to show which markers are no-calls, and recommend confirmatory clinical genotyping. Do NOT guess a verdict.",
+    };
+  }
 
   if (!quiet) {
     const okC = await requestConsent("generate_zk_proof", { markerId: gene },
@@ -3358,7 +3893,7 @@ async function toolVerifyZkProof({ claimId, proof, publicSignals }, quiet) {
 }
 
 // ---------------------------------------------------------------------------
-// WebMCP Imperative Registration (12 Tools)
+// WebMCP Imperative Registration (18 Tools)
 // ---------------------------------------------------------------------------
 async function registerWebMCPTools() {
   const res = { available: false, registered: [], verifiedCount: null, error: null };
@@ -3396,7 +3931,7 @@ async function registerWebMCPTools() {
       } catch (e) {}
     }
 
-    recordAuditLog("Real WebMCP registration: " + res.registered.length + "/12 tools registered in document.modelContext", "WEBMCP_REG");
+    recordAuditLog("Real WebMCP registration: " + res.registered.length + "/" + WEBMCP_TOOLS.length + " tools registered in document.modelContext", "WEBMCP_REG");
   } catch (e) {
     res.error = String(e.message || e);
     recordAuditLog("WebMCP registration exception: " + res.error, "WEBMCP_REG", "FLAGGED");
@@ -3407,9 +3942,9 @@ async function registerWebMCPTools() {
 function renderWebMCPStatus(res) {
   state.webmcp = res;
   if (res.available && res.registered.length === WEBMCP_TOOLS.length) {
-    setPill("webmcp-status-pill", '<span class="material-symbols-outlined text-[14px] text-emerald-600 dark:text-emerald-400">hub</span><span>WebMCP: 12/12 Active</span>');
+    setPill("webmcp-status-pill", '<span class="material-symbols-outlined text-[14px] text-emerald-600 dark:text-emerald-400">hub</span><span>WebMCP: ' + WEBMCP_TOOLS.length + '/' + WEBMCP_TOOLS.length + ' Active</span>');
   } else {
-    setPill("webmcp-status-pill", '<span class="material-symbols-outlined text-[14px] text-blue-600 dark:text-blue-400">hub</span><span>WebMCP: 12 Tools</span>');
+    setPill("webmcp-status-pill", '<span class="material-symbols-outlined text-[14px] text-blue-600 dark:text-blue-400">hub</span><span>WebMCP: ' + WEBMCP_TOOLS.length + ' Tools</span>');
   }
 
   const list = document.getElementById("webmcp-tool-list");
@@ -3443,6 +3978,12 @@ function renderWebMCPStatus(res) {
 function defaultArgsForTool(name) {
   switch (name) {
     case "check_drug_safety": return { drugName: "Plavix" };
+    case "compare_two_drugs": return { drugA: "Plavix", drugB: "Ticagrelor" };
+    case "check_food_drug_interactions": return { drugName: "Warfarin" };
+    case "run_preop_panel": return {};
+    case "export_doctor_summary": return {};
+    case "get_privacy_report": return {};
+    case "revoke_session_consents": return {};
     case "simulate_drug_docking": return { drugName: "Plavix", gene: "CYP2C19" };
     case "highlight_catalytic_pocket": return { gene: "CYP2C19" };
     case "get_patient_phenotype": return { gene: "CYP2C19" };

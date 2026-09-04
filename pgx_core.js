@@ -516,10 +516,41 @@ function activityFraction(gene, categoryKey) {
 }
 
 // ---------------------------------------------------------------------------
+// Plain-language verdict mapping (the "Can I take this?" card).
+// HONEST RE-PRESENTATION of existing risk labels — no new clinical claims.
+// Four buckets per clinical-decision-support convention: USE / ADJUST DOSE /
+// AVOID / INSUFFICIENT DATA — always routed to the prescriber, never autonomous.
+// ---------------------------------------------------------------------------
+const PGX_RULESET_VERSION = "pgx-rules-demo 2026.09 (CPIC-flavored; ONE most-actionable marker per gene — see per-gene limitation caveats)";
+
+function plainAnswerFor(risk) {
+  switch (String(risk || "")) {
+    case "standard":
+    case "high_clearance":
+      return { answer: "USE", plain: "No genotype-based reason to avoid — standard dosing per protocol is expected to be appropriate (prescriber decision).", confidence: "proven for the tested marker(s) only — check the gene caveat for scope" };
+    case "adjusted_dose":
+      return { answer: "ADJUST DOSE", plain: "Genotype suggests a dose modification — prescriber should apply the guideline adjustment with monitoring.", confidence: "proven for the tested marker(s) only" };
+    case "reduced_efficacy":
+    case "severe_toxicity":
+    case "myopathy_risk":
+    case "high_myopathy_risk":
+    case "toxicity_risk":
+      return { answer: "ADJUST DOSE OR CONSIDER ALTERNATIVE", plain: "Genotype indicates elevated risk or reduced benefit at standard dosing — guideline-preferred alternative or dose adjustment is a prescriber decision.", confidence: "proven for the tested marker(s) only" };
+    case "contraindicated":
+    case "no_efficacy":
+    case "major_loss_of_efficacy":
+      return { answer: "AVOID", plain: "Genotype predicts serious harm or zero benefit — prescriber should choose a guideline-preferred alternative.", confidence: "proven for the tested marker(s) only" };
+    default:
+      return { answer: "INSUFFICIENT DATA", plain: "No honest verdict exists for this genotype state — GeneVault refuses to guess. Confirmatory clinical genotyping recommended.", confidence: "cannot be determined from this file" };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Export shim: Node + browser
 // ---------------------------------------------------------------------------
 const PGXCore = {
   PGX_PANEL, TARGET_RSIDS, PGX_DISCLAIMER,
+  PGX_RULESET_VERSION, plainAnswerFor,
   parseGenomicFile, deriveGeneStates, sha256ToBigInt,
   findDrug, listDrugs, warfarinRiskTier,
   getClaimCatalog, claimFor, geneDefFor, activityFraction,
