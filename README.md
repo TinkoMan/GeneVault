@@ -22,6 +22,32 @@ honestly-labeled local fallback — the full demo still works.
 
 ---
 
+## Understand the concept via prompts
+
+The fastest way to actually *get* what GeneVault does is to ask it something and watch which of
+the 18 tools light up. Every prompt below is copy-pasteable into the in-app Prescribing Copilot
+(or into an external WebMCP agent like ChatGPT's browser) — try **Load Demo Data** first.
+
+| Prompt | What it's really testing | Tools it triggers |
+|---|---|---|
+| "My friend was prescribed Plavix after a stent. Is it safe for me? Prove it mathematically WITHOUT reading my raw DNA, and if it's dangerous tell us what to prescribe instead." | The headline flow: risk verdict + a real proof + a CPIC alternative, all in one ask | `check_drug_safety` → `generate_zk_proof` → `verify_zk_proof` → `recommend_alternative` |
+| "My GI wants to start Imuran long-term. Is my TPMT good enough? Prove it." | The panel isn't hardcoded to one gene — TPMT drives thiopurine dosing, totally different pathway | `check_drug_safety("Imuran")` → `generate_zk_proof` → `verify_zk_proof` |
+| "I drink grapefruit juice daily and eat spinach — do my panel meds care?" | Non-genetic risk layered on top of genetic risk — diet interactions, not a ZK claim | `check_food_drug_interactions` |
+| "Not Codeine after dental surgery — will it even work on me?" / "Is Codeine safe for me?" | CYP2D6 phenotype can mean codeine does *nothing* (poor metabolizer) or is dangerously strong (ultra-rapid) — same tool, opposite failure modes | `check_drug_safety("Codeine")` |
+| "My mom starts chemo for colon cancer — the oncologist suggested Xeloda. Check my DPYD safety, prove it, and tell me if 5-FU carries the same risk." | Xeloda (capecitabine) is a prodrug of 5-FU — both are gated by the same DPYD variant, and the app should say so rather than treating them as unrelated | `check_drug_safety("Xeloda")` → `compare_two_drugs("Xeloda","5-FU")` → `generate_zk_proof` |
+| "I'm starting Warfarin for AFib — which TWO genes did you prove my dose from?" | Warfarin is the one drug in the panel that requires **two independent proofs** (CYP2C9 + VKORC1) before a verdict — makes sure it's not silently dropping one | `check_drug_safety("Warfarin")` → two calls of `generate_zk_proof` / `verify_zk_proof` |
+| "Is Warfarin safe for me? My doctor is setting the dose." | Same dual-gene flow, phrased the way a patient — not a developer — would actually ask it | `check_drug_safety("Warfarin")` |
+| "Is Simvastatin 80mg ok for my cholesterol?" | SLCO1B1 variants drive statin-induced myopathy risk at high doses | `check_drug_safety("Simvastatin")` |
+| "Show me the actual 3D enzyme that processes Plavix, dock the drug into it, and pin a note explaining what's wrong in my case." | The 3D layer isn't decoration — it's a real RCSB PDB structure, a docking visualization, and an agent-authored annotation, chained together | `visualize_variant` → `simulate_drug_docking` → `highlight_catalytic_pocket` → `annotate_structure` |
+| "Honestly — why don't I just paste my rs4244285 genotype directly into the chat? What does your setup actually protect me from?" | The trust question every judge asks eventually — forces the app to explain its own threat model instead of you explaining it for it | `get_privacy_report` |
+| "Prove to me that you can determine my drug response WITHOUT seeing my actual DNA letters. Show me the cryptographic proof and verify it — and count how many letters of my DNA you saw." | The whole pitch in one line — a live proof, a live verification, and an explicit, auditable zero-letter count | `generate_zk_proof` → `verify_zk_proof` → `get_privacy_report` |
+
+Also worth trying: **Security & Forgery Audit → Attempt False Forgery**, which isn't a chat prompt
+at all — it's a button that tries to make the circuit lie, and fails on purpose. That failure *is*
+the demo.
+
+---
+
 ## What's actually real
 
 | Layer | Status |
@@ -143,6 +169,65 @@ responses, and audit ledger say so explicitly.
 
 Note: this submission ships the compiled artifacts, keys, and Solidity
 verifiers; the circom source of `PgxMembershipV2` is not part of the repo drop.
+
+## FAQ
+
+**Why can't I just paste my genotype into the chat instead of doing all this?**
+You can — and that's exactly the thing GeneVault exists to prevent. The moment a raw genotype is
+in a chat message, it's sitting in that provider's logs, training pipelines, or a screenshot,
+forever, tied to your identity. A password can be rotated after a leak; a genome can't. GeneVault's
+answer is that the agent never receives the genotype at all — only a proof that a claim about it is
+true. Ask `get_privacy_report` at any time for the exact count of genetic values disclosed (it's
+always zero).
+
+**Is the zero-knowledge proof actually real, or is it a UI animation?**
+It's real Groth16 over bn128, run by snarkjs, against a compiled 8,845-constraint Circom circuit
+(`PgxMembershipV2`). You don't have to trust the app's badge — the compiled circuit, proving key,
+verification key, and Solidity verifiers all ship in the repo, and the **Independently verifying
+the proofs** section above gives you the exact CLI command to check a proof yourself, outside the
+browser entirely.
+
+**What does a proof actually prove — and what does it *not* prove?**
+It proves the prover holds a genotype leaf that (1) is a signed member of the published Merkle tree
+for a specific `GENE__CATEGORY` claim, and (2) hasn't been used before (single-use nullifier). It
+does **not** prove the uploaded file belongs to the person uploading it, and it does not prove the
+variant panel is clinically complete. Both limits are stated in-app, not just here.
+
+**Can I make it lie — force a "safe" verdict for an unsafe genotype?**
+No — that's what the **Forgery Audit** button is for. A non-member leaf fails witness generation
+before a proof can even be constructed; there's no code path that produces a valid proof for a
+false claim. Try it live rather than taking that on faith.
+
+**What happens if I ask about a drug the panel doesn't cover, or upload a file with gaps?**
+It refuses to guess. Missing or low-confidence markers return `no_confident_call` or
+`marker_absent` instead of a fabricated verdict — see `list_detected_markers` and `DEMO_PROMPTS.md`
+(P6) for the exact behavior.
+
+**Does my DNA file get uploaded anywhere, ever?**
+No. Parsing (23andMe / AncestryDNA raw text / VCF 4.x) happens client-side, in a single pass, and
+the file never leaves the browser tab. Closing the tab clears it — there's no server-side storage
+in this demo.
+
+**Why does Warfarin need two proofs instead of one?**
+Warfarin dosing genuinely depends on two independent genes — CYP2C9 (metabolism) and VKORC1
+(sensitivity) — so a single-gene proof would be an honest-sounding but incomplete answer. The app
+runs and verifies both before returning a verdict; ask it directly which two genes it used.
+
+**Is this trained on or connected to a real EHR / real patients?**
+No. The demo ships with synthetic patient files, and the curator/issuer/prover all run in one
+browser for the sake of the demo. The README and in-app UI both say so — production would split
+those three roles across a lab, a registry, and the patient's device.
+
+**Can this replace a doctor or genetic counselor?**
+No, and it says so on every relevant screen. It's a demonstration of privacy-preserving querying,
+not a diagnostic or prescribing tool. See the disclaimer at the bottom of this file.
+
+**Does this only work in ChatGPT's browser / Chrome 149+?**
+Real WebMCP calls need one of those. Everywhere else — including most current Chrome versions and
+other browsers — the app runs an identical, honestly-labeled local fallback so the full demo still
+works; it just isn't being driven by an external agent over WebMCP.
+
+---
 
 ## Run it
 
